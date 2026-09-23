@@ -8498,10 +8498,12 @@ function _copyThinkingText(btn){
 // ── TTS: Text-to-Speech via Web Speech API (#499) ──
 // Strips markdown, code blocks, and MEDIA: paths for clean speech output.
 function _stripForTTS(text){
-  // Remove code blocks entirely (```) — line-anchored to match #1438 fix
-  text=text.replace(/(^|\n)[ ]{0,3}```(?:[\s\S]*?\n)?[ ]{0,3}```(?=\n|$)/g,' ');
-  // Remove inline code
-  text=text.replace(/`[^`]+`/g,' ');
+  // Code is KEPT and read aloud: only the fences/backticks are removed, the
+  // content stays. (Was: fenced blocks and inline code were deleted entirely,
+  // so commands, file names and CSS identifiers were never spoken.) Fence
+  // stripping stays LINE-ANCHORED so a mid-line ``` is never touched (#1438).
+  text=text.replace(/^[ ]{0,3}```[^\n]*$/gm,'');   // opening/closing fence + info string
+  text=text.replace(/`([^`]*)`/g,'$1');            // inline code → its content
   // Strip bold/italic
   text=text.replace(/\*\*(.+?)\*\*/g,'$1');
   text=text.replace(/\*(.+?)\*/g,'$1');
@@ -8587,65 +8589,140 @@ function _buildBrowserUtterance(text, btn){
   return utter;
 }
 
+// Edge TTS chunk size. The server accepts up to 5000 chars per request, so Edge
+// deliberately uses a much larger chunk than the browser engine's 300-char
+// default (which exists only because SpeechSynthesis truncates long texts):
+// fewer chunks = fewer boundaries where a gap could appear.
+const _EDGE_TTS_CHUNK_CHARS=1200;
+
+// Play one chunk payload: a decoded AudioBuffer via Web Audio (preferred, exact
+// length known) or raw MP3 bytes via an <audio> blob when no AudioContext.
+// Returns a Promise resolving when playback of THIS chunk is over.
+function _playTtsChunkPayload(payload, onended){
+  const ctx=_getTtsAudioCtx();
+  if(ctx && payload && typeof payload.numberOfChannels==='number'){
+    const src=ctx.createBufferSource();
+    src.buffer=payload;
+    src.connect(ctx.destination);
+    _playingEdgeAudio=src;
+    return new Promise(function(resolve){
+      src.onended=function(){
+        try{src.disconnect();}catch(_){}
+        if(_playingEdgeAudio===src) _playingEdgeAudio=null;
+        resolve();
+        if(onended) onended();
+      };
+      try{ src.start(0); }
+      catch(e){
+        if(_playingEdgeAudio===src) _playingEdgeAudio=null;
+        resolve();
+        if(typeof showToast==='function') showToast('Edge TTS error: '+(e&&e.message||e),4000,'error');
+        if(onended) onended();
+      }
+    });
+  }
+  const url=URL.createObjectURL(new Blob([payload],{type:'audio/mpeg'}));
+  const audio=new Audio(url);
+  _playingEdgeAudio=audio;
+  return new Promise(function(resolve){
+    const _done=function(){
+      URL.revokeObjectURL(url);
+      if(_playingEdgeAudio===audio) _playingEdgeAudio=null;
+      resolve();
+      if(onended) onended();
+    };
+    audio.onended=_done;
+    audio.onerror=_done;
+    audio.play().catch(function(e){
+      _done();
+      if(typeof showToast==='function') showToast('Edge TTS error: '+(e&&e.message||e),4000,'error');
+    });
+  });
+}
+
+// Edge TTS with a PREFETCH pipeline. Synthesizing a chunk costs 2.4-4.1 s
+// (Microsoft round trip), so the original flow — request chunk N+1 only after
+// chunk N finished playing — inserted that whole latency as audible silence at
+// every boundary ("reads a sentence, pauses several seconds, resumes"). Here
+// chunk N+1 is requested while chunk N is still playing and the next already
+// decoded buffer is chained on 'ended', so boundaries are effectively gapless.
 function _playEdgeTtsChunked(text, btn){
   _ttsSpeaking=true;
   if(btn) btn.dataset.speaking='1';
-  const chunks=_splitForTTS(text);
+  const chunks=_splitForTTS(text, _EDGE_TTS_CHUNK_CHARS);
+  const voice=localStorage.getItem('hermes-tts-voice')||'zh-CN-XiaoxiaoNeural';
+  const savedRate=parseFloat(localStorage.getItem('hermes-tts-rate'));
+  const savedPitch=parseFloat(localStorage.getItem('hermes-tts-pitch'));
+  let rate='', pitch='';
+  if(!isNaN(savedRate)){const pct=Math.round((savedRate-1)*100);const sign=pct>=0?'+':'';rate=sign+pct+'%';}
+  if(!isNaN(savedPitch)){const hz=Math.round((savedPitch-1)*50);const sign=hz>=0?'+':'';pitch=sign+hz+'Hz';}
+
+  const ctx=_getTtsAudioCtx();
+  const inflight=new Map();
+  let stopped=false;
+
+  const _fail=function(msg){
+    stopped=true;_ttsSpeaking=false;_playingEdgeAudio=null;
+    if(btn) btn.dataset.speaking='0';
+    if(msg&&typeof showToast==='function') showToast(msg,4000,'error');
+  };
+
+  const _decode=function(arrayBuffer){
+    if(!ctx) return Promise.resolve(arrayBuffer);  // → <audio> blob fallback
+    return new Promise(function(res,rej){
+      try{
+        ctx.decodeAudioData(arrayBuffer, res, function(e){ rej(e||new Error('decode failed')); });
+      }catch(e){ rej(e); }
+    });
+  };
+
+  // Request + decode one chunk. Idempotent: a chunk already in flight (started
+  // as a prefetch) is reused instead of being fetched twice. Retries on the
+  // server's TTS rate limit (1 request / 2 s per client, HTTP 429).
+  const _request=function(idx){
+    if(inflight.has(idx)) return inflight.get(idx);
+    const p=(async function(){
+      const bodyStr=JSON.stringify({text:chunks[idx], voice:voice, rate:rate, pitch:pitch});
+      for(let attempt=0;;attempt++){
+        const r=await fetch(new URL('api/tts', document.baseURI || location.href).href, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:bodyStr
+        });
+        if(r.status===429 && attempt<12){
+          await new Promise(function(res){ setTimeout(res,1500); });
+          if(stopped) throw new Error('stopped');
+          continue;
+        }
+        if(!r.ok){
+          const j=await r.json().catch(function(){return {};});
+          throw new Error((j&&j.error)||('TTS request failed: '+r.status));
+        }
+        return await _decode(await r.arrayBuffer());
+      }
+    })();
+    p.catch(function(){});  // an aborted prefetch must not surface as unhandled
+    inflight.set(idx,p);
+    return p;
+  };
+
   const _playOne=function(idx){
+    if(stopped||!_ttsSpeaking) return;
     if(idx>=chunks.length){
       _ttsSpeaking=false;_playingEdgeAudio=null;
       if(btn) btn.dataset.speaking='0';
       return;
     }
-    const chunk=chunks[idx];
-    const voice=localStorage.getItem('hermes-tts-voice')||'zh-CN-XiaoxiaoNeural';
-    const savedRate=parseFloat(localStorage.getItem('hermes-tts-rate'));
-    const savedPitch=parseFloat(localStorage.getItem('hermes-tts-pitch'));
-    let rate='', pitch='';
-    if(!isNaN(savedRate)){const pct=Math.round((savedRate-1)*100);const sign=pct>=0?'+':'';rate=sign+pct+'%';}
-    if(!isNaN(savedPitch)){const hz=Math.round((savedPitch-1)*50);const sign=hz>=0?'+':'';pitch=sign+hz+'Hz';}
-    fetch(new URL('api/tts', document.baseURI || location.href).href, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:chunk, voice:voice, rate:rate, pitch:pitch})
-    })
-    .then(function(r){
-      if(!r.ok){
-        return r.json().catch(function(){return {};}).then(function(j){
-          throw new Error((j&&j.error)||('TTS request failed: '+r.status));
-        });
-      }
-      return r.blob();
-    })
-    .then(function(blob){
-      if(!_ttsSpeaking) return;
-      const url=URL.createObjectURL(blob);
-      const audio=new Audio(url);
-      _playingEdgeAudio=audio;
-      audio.onended=function(){
-        URL.revokeObjectURL(url);
-        _playingEdgeAudio=null;
-        if(_ttsSpeaking) _playOne(idx+1);
-      };
-      audio.onerror=function(){
-        URL.revokeObjectURL(url);
-        _playingEdgeAudio=null;
-        _ttsSpeaking=false;
-        if(btn) btn.dataset.speaking='0';
-      };
-      audio.play().catch(function(e){
-        URL.revokeObjectURL(url);
-        _playingEdgeAudio=null;
-        _ttsSpeaking=false;
-        if(btn) btn.dataset.speaking='0';
-        if(typeof showToast==='function') showToast('Edge TTS error: '+(e&&e.message||e));
+    Promise.resolve(_request(idx))
+      .then(function(payload){
+        if(stopped||!_ttsSpeaking) return;
+        // Prefetch the FOLLOW-UP chunk now, while this one plays.
+        if(idx+1<chunks.length) _request(idx+1);
+        return _playTtsChunkPayload(payload, function(){ _playOne(idx+1); });
+      })
+      .catch(function(e){
+        if(!stopped) _fail('Edge TTS failed: '+(e&&e.message||e));
       });
-    })
-    .catch(function(e){
-      _ttsSpeaking=false;_playingEdgeAudio=null;
-      if(btn) btn.dataset.speaking='0';
-      if(typeof showToast==='function') showToast('Edge TTS failed: '+(e&&e.message||e));
-    });
   };
   _playOne(0);
 }
