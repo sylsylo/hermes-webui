@@ -21,7 +21,7 @@ Preview is instant — the UI updates as you click.
 **Slash command:** Type `/theme <name>` in the composer. The command accepts
 both theme names (`system`, `dark`, `light`) and skin names (`default`, `ares`,
 `mono`, `slate`, `poseidon`, `sisyphus`, `charizard`, `sienna`,
-`catppuccin`, `nous`, `geist-contrast`, `zeus`). It updates the matching axis and leaves the other one
+`catppuccin`, `nous`, `geist-contrast`, `zeus`, `icon-blue`). It updates the matching axis and leaves the other one
 alone.
 
 **Persistence:** Both choices are stored in `localStorage` for flicker-free
@@ -59,6 +59,7 @@ absent for light. System mode tracks the OS preference at runtime.
 | **Nous** | Steel-blue accent with dashed technical surfaces. |
 | **Geist Contrast** (`geist-contrast`) | Geist-inspired monochrome surfaces with a restrained dark-mode `#FFF175` accent. |
 | **Zeus** | OLED-near-black dark surfaces that keep the default gold accent. Dark-focused; falls back to the default light palette in light mode. |
+| **Icon blue** (`icon-blue`) | The Hermes app-icon palette: deep navy night surfaces (`#04162E` → `#061E3D`) with the cyan→blue emblem gradient (`#08EBF1` → `#3889FD`) as the accent family, and primary buttons painted with that gradient. Light mode keeps Default's value ladder (`bg` 98.4 > `sidebar` 96.5 > `surface` 93.0 L\*) pivoted onto the emblem blue (`--accent:#0B6FB2`), with blue-tinted chrome and cool syntax colours so no warm-grey is left beside the azure surfaces. |
 
 Each skin defines paired light + dark variants so it reads cleanly on either
 theme. The skin is applied as `data-skin="<name>"` on `<html>` (the default
