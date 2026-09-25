@@ -2365,7 +2365,7 @@
   .dashboard-external-badge{position:absolute;right:5px;top:5px;width:9px;height:9px;border-radius:2px;border:1px solid var(--accent);background:var(--sidebar);box-shadow:0 0 0 2px var(--sidebar);opacity:.95;}
   .dashboard-external-badge::after{content:'';position:absolute;right:-2px;top:-2px;width:5px;height:5px;border-top:1.5px solid var(--accent);border-right:1.5px solid var(--accent);}
   .sidebar-nav .dashboard-external-badge{right:8px;top:7px;width:8px;height:8px;}
-  @media(min-width:1025px){.rail{display:flex;}.sidebar > .sidebar-nav{display:none;}}
+  @media(min-width:711px){.rail{display:flex;}.sidebar > .sidebar-nav{display:none;}}
   /* Sidebar navigation tabs */
   .sidebar-nav{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:6px 8px 0;gap:2px;}
   .nav-tab{flex:1;padding:10px 4px 8px;font-size:20px;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;transition:color .15s;border-bottom:2px solid transparent;white-space:nowrap;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;}
@@ -3162,7 +3162,7 @@
   .mobile-overlay{display:none;}
   .pwa-sidebar-edge-guard{display:none;}
 
-  @media(min-width:1025px){
+  @media(min-width:901px){
     html[data-workspace-panel="closed"] .rightpanel{width:0 !important;min-width:0 !important;opacity:0;transform:translateX(14px);border-left-color:transparent;pointer-events:none;}
     .layout.workspace-panel-collapsed .rightpanel{width:0 !important;min-width:0 !important;opacity:0;transform:translateX(14px);border-left-color:transparent;pointer-events:none;}
     html[data-workspace-panel="closed"] .workspace-panel-edge-toggle{display:inline-flex;opacity:1;pointer-events:auto;transform:translateY(-50%);}
@@ -3173,13 +3173,13 @@
     .rightpanel{flex-shrink:1;min-width:180px;}
   }
 
-  /* Sidebar collapse breakpoint matches `_isDesktopWidth()` (min-width:1025px) so
+  /* Sidebar collapse breakpoint matches `_isDesktopWidth()` (min-width:711px) so
      clicking the active rail icon in the desktop band actually produces a visual
-     change rather than silently flipping a class while CSS sits out at @1025.
-     The rail itself becomes visible at min-width:1025px, so any width where the
+     change rather than silently flipping a class while CSS sits out at @711.
+     The rail itself becomes visible at min-width:711px, so any width where the
      user can click the rail should also be a width where the collapse rule
-     applies. :not(.mobile-open) excludes the slide-in drawer at ≤1024px. */
-  @media(min-width:1025px){
+     applies. :not(.mobile-open) excludes the slide-in drawer at ≤710px. */
+  @media(min-width:711px){
     .layout.sidebar-collapsed .sidebar:not(.mobile-open){width:0 !important;min-width:0;opacity:0;transform:translateX(-14px);border-right-color:transparent;pointer-events:none;overflow:hidden;}
     .layout.sidebar-collapsed .sidebar .resize-handle{display:none;}
     /* Flash prevention: an inline <script> in index.html sets this dataset on
@@ -3242,8 +3242,8 @@
     .composer-toolsets-wrap{display:block;}
   }
 
-  /* ── Coquille mobile : navigation en tiroir, jusqu'à 1024px ──────────────────
-     Le seuil est ici 1024px (et 1025px pour les blocs « bureau » : .rail, repli de
+  /* ── Coquille mobile : navigation en tiroir, jusqu'à 710px ──────────────────
+     Le seuil est ici 710px (et 711px pour les blocs « bureau » : .rail, repli de
      la sidebar, .sidebar/.rightpanel {position:relative}, chrome du pied de message).
      Toute règle déplacée dans ce bloc doit avoir son pendant dans les gates JS
      `_isPhoneWidthViewport()` / `_isDesktopWidth()` (boot.js) — sinon la coquille CSS
@@ -3253,7 +3253,7 @@
      liste ancrée sur le côté et pas assez de place. La densité téléphone (chips du
      composeur en icône seule, paddings, grilles) reste volontairement sur la bande
      ≤640px : bloc « Densité téléphone » juste après. */
-@media(max-width:1024px){
+@media(max-width:710px){
     /* Mobile PWA reflow guard (#3976): a one-frame GPU-promotion transform that
        _forceMobileViewportReflow() toggles via html.viewport-reflow to force a
        repaint after visualViewport/keyboard geometry changes. overflow-x:clip
@@ -3807,9 +3807,9 @@ body.tts-enabled .msg-tts-btn{display:inline-flex;align-items:center;}
 }
 .resize-handle:hover,.resize-handle.dragging{background:var(--accent);}
 /* Desktop-only: position:relative for sidebar/rightpanel resize handles.
-   Must be scoped to min-width:1025px so it doesn't override the mobile
-   position:fixed slide-in drawer set in the max-width:1024px @media block above. */
-@media(min-width:1025px){
+   Must be scoped to min-width:711px so it doesn't override the mobile
+   position:fixed slide-in drawer set in the max-width:710px @media block above. */
+@media(min-width:711px){
   .sidebar{position:relative;}
   .rightpanel{position:relative;}
 }
@@ -6407,7 +6407,7 @@ main.main > #mainPlugin{display:none;}
 .assistant-turn:focus-within .msg-foot { opacity: 1; }
 /* Desktop/tablet keeps the per-turn jump affordance discoverable without
    exposing the quieter timestamp/action chrome until hover or keyboard focus. */
-@media (min-width: 1025px) {
+@media (min-width: 711px) {
   .msg-row[data-role="assistant"] .msg-foot:has(.msg-question-jump-btn),
   .assistant-turn .msg-foot:has(.msg-question-jump-btn) {
     opacity: 1;

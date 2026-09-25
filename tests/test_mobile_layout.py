@@ -3,11 +3,11 @@ Mobile layout regression tests — run on every QA pass.
 
 These tests check that the CSS and HTML structure required for correct
 mobile rendering is intact after every change. Two width bands are tested:
-  - the mobile SHELL band (≤SHELL_MAX = 1024px): full-screen session drawer,
+  - the mobile SHELL band (≤SHELL_MAX = 710px): full-screen session drawer,
     hamburger, in-sidebar tab strip, right panel as a slide-over, touch targets;
   - the phone DENSITY band (≤640px): icon-only composer chips, paddings, grids.
 The shell band is pinned to the JS gates in boot.js/ui.js (see
-test_mobile_shell_band_is_1024_and_density_band_stays_640).
+test_mobile_shell_band_is_710_and_density_band_stays_640).
 They are static checks (no server needed) that catch common regressions:
 
   - Mobile breakpoints present for key layout elements
@@ -32,12 +32,18 @@ CSS  = (REPO / "static" / "style.css").read_text(encoding="utf-8")
 # ── Bandes de largeur (à garder synchrones avec style.css ET boot.js) ──────────
 # SHELL_MAX   : coquille mobile — tiroir plein écran, hamburger, bandeau d'onglets
 #               dans la sidebar, panneau droit en slide-over, cibles tactiles.
+#               Choisi juste au-dessus de la largeur CSS du téléphone de référence
+#               (704px) : au-delà, la vue « tablette » d'origine doit reprendre.
+# TABLET_MAX  : bande tablette — sidebar ancrée (position:relative), rail visible,
+#               panneau droit masqué ; c'est aussi la bande du mode « compact » du
+#               panneau d'aperçu (outline.js) et de _isCompactWorkspaceViewport().
 # DESKTOP_MIN : bande bureau — rail visible, repli de la sidebar,
 #               .sidebar/.rightpanel{position:relative}, chrome du pied de message.
 # La densité téléphone (chips du composeur en icône seule, paddings, grilles) reste
 # volontairement sur la bande ≤640px et se teste avec _max_width_media_blocks(640).
-SHELL_MAX = 1024
-DESKTOP_MIN = 1025
+SHELL_MAX = 710
+TABLET_MAX = 900
+DESKTOP_MIN = 711
 
 
 def _max_width_media_blocks(width_px):
@@ -929,7 +935,7 @@ def test_titlebar_new_chat_button_mobile_visibility_css():
         "app-titlebar new chat button must be visible in mobile layout rules"
     )
     desktop_css = re.sub(
-        r"@media\(max-width:(?:1024|640)px\).*",
+        r"@media\(max-width:(?:710|640)px\).*",
         "",
         CSS,
         flags=re.S,
@@ -1171,7 +1177,7 @@ def test_legacy_320px_composer_tightens_spacing_without_shrinking_targets():
         "320px left controls need compact gutters to fit config before the fixed send button"
     assert wrap.get("padding-left") == "8px!important", \
         "320px composer should reclaim a little side padding without shrinking touch targets"
-    # Le .send-btn 44px a suivi la coquille (≤1024px) : les écrans 641–1024px du
+    # Le .send-btn 44px a suivi la coquille (≤710px) : les écrans 641–710px du
     # téléphone doivent eux aussi garder la cible tactile.
     assert ".send-btn{width:44px;height:44px;" in "\n".join(_max_width_media_blocks(SHELL_MAX)), \
         "narrow spacing override must not shrink the 44px send button"
@@ -1515,7 +1521,7 @@ def test_mobile_composer_primary_controls_keep_touch_friendly_sizing():
             assert declarations.get("min-width") == "44px", \
                 f"{selector} must keep a 44px minimum width on phones"
 
-    # Le .send-btn 44px est dans la bande coquille (≤1024px), pas dans la densité.
+    # Le .send-btn 44px est dans la bande coquille (≤710px), pas dans la densité.
     shell_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
     send = _declarations(_rule_body(shell_css, ".send-btn"))
     assert send.get("width") == "44px", ".send-btn must keep 44px width on phones"
@@ -1542,7 +1548,7 @@ def test_mobile_composer_primary_controls_keep_touch_friendly_sizing():
         "the context ring is decorative overlay — it must be aria-hidden so it doesn't steal the config button's role/touch target"
 
     # Les cibles 44px des boutons d'icône (.icon-btn/.mic-btn/.voice-mode-btn) ont suivi la
-    # coquille mobile (≤1024px) avec le reste du dimensionnement tactile.
+    # coquille mobile (≤710px) avec le reste du dimensionnement tactile.
     icon_btn = _declarations(_rule_body(shell_css, ".icon-btn"))
     assert icon_btn.get("min-width") == "44px", \
         ".icon-btn controls such as attach/mic must keep 44px minimum width on phones"
@@ -1753,13 +1759,13 @@ def _media_block_bodies(css, condition):
     return bodies
 
 
-def test_mobile_shell_band_is_1024_and_density_band_stays_640():
-    """The mobile navigation shell covers ≤SHELL_MAX (1024px), the phone density
+def test_mobile_shell_band_is_710_and_density_band_stays_640():
+    """The mobile navigation shell covers ≤SHELL_MAX (710px), the phone density
     rules stay ≤640px, and the JS gates use the same two numbers.
 
     These surfaces must move together: a shell rule without its JS gate makes the
     hamburger/rail silently inert (or the collapse invisible), and a density rule
-    promoted to the shell band degrades a 700–1024px viewport instead of helping it.
+    promoted to the shell band degrades a 700–710px viewport instead of helping it.
     """
     shell = "\n".join(_media_block_bodies(CSS, f'max-width:{SHELL_MAX}px'))
     density = "\n".join(_media_block_bodies(CSS, 'max-width:640px'))
@@ -1781,7 +1787,7 @@ def test_mobile_shell_band_is_1024_and_density_band_stays_640():
         assert density_marker in density, f"{density_marker} must stay in the ≤640px density band"
     assert '.composer-profile-chip' not in shell, (
         "composer density rules must not be promoted into the shell band: "
-        "a 700–1024px viewport has room for the labelled chips"
+        "a 700–710px viewport has room for the labelled chips"
     )
 
     # Desktop band keeps the rail + the relative positioning used by the resize handles.
@@ -1802,9 +1808,16 @@ def test_mobile_shell_band_is_1024_and_density_band_stays_640():
     assert f'(min-width:{DESKTOP_MIN}px)' in boot or f'(min-width: {DESKTOP_MIN}px)' in boot, \
         f"boot.js must treat ≥{DESKTOP_MIN}px as desktop"
 
-    for rel in ("static/boot.js", "static/ui.js", "static/outline.js"):
+    # JS gates follow the same numbers: boot.js/ui.js gate the phone shell navigation,
+    # outline.js gates the workspace panel preview, which belongs to the compact
+    # (tablet) band — the right panel is hidden up to TABLET_MAX, not just the phone.
+    for rel in ("static/boot.js", "static/ui.js"):
         js = (REPO / rel).read_text(encoding="utf-8")
         assert f'(max-width:{SHELL_MAX}px)' in js or f'(max-width: {SHELL_MAX}px)' in js, \
             f"{rel} must use the shell band, not a stale breakpoint"
         assert '(max-width:640px)' not in js and '(max-width: 640px)' not in js, \
             f"{rel} must not gate layout behaviour on the 640px density band"
+
+    outline_js = (REPO / "static" / "outline.js").read_text(encoding="utf-8")
+    assert f'(max-width:{TABLET_MAX}px)' in outline_js or f'(max-width: {TABLET_MAX}px)' in outline_js, \
+        f"outline.js must follow the compact (≤{TABLET_MAX}px) band, where the right panel is hidden"

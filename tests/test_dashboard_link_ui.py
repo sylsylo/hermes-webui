@@ -396,8 +396,8 @@ def test_dashboard_frontend_uses_browser_url_without_requiring_probe_port():
 def test_mobile_dashboard_link_uses_shared_visible_action_class():
     match = re.search(
         # Les règles du bandeau d'onglets (.sidebar-nav) vivent dans la bande coquille
-        # mobile (≤1024px) — cf. test_mobile_layout.SHELL_MAX.
-        r"@media\(max-width:1024px\)\{([\s\S]*?)\n\s{2}\}\n",
+        # mobile (≤710px) — cf. test_mobile_layout.SHELL_MAX.
+        r"@media\(max-width:710px\)\{([\s\S]*?)\n\s{2}\}\n",
         STYLE_CSS,
         re.DOTALL,
     )

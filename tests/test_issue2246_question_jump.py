@@ -73,7 +73,7 @@ def test_question_jump_footer_is_discoverable_on_desktop_without_exposing_action
     block_end = STYLE_CSS.index(".assistant-turn .msg-foot-with-usage", block_start)
     desktop_jump_block = STYLE_CSS[block_start:block_end]
 
-    assert "@media (min-width: 1025px)" in desktop_jump_block
+    assert "@media (min-width: 711px)" in desktop_jump_block
 
     assert ".assistant-turn .msg-foot:has(.msg-question-jump-btn)" in desktop_jump_block
     assert "opacity: 1;" in desktop_jump_block

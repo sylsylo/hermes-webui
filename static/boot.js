@@ -146,11 +146,11 @@ async function _finalizeComposerPrefillOnBoot(prefillIntent){
 let _workspacePanelMode='closed'; // 'closed' | 'browse' | 'preview'
 
 function _isCompactWorkspaceViewport(){
-  return window.matchMedia('(max-width: 1024px)').matches;
+  return window.matchMedia('(max-width: 900px)').matches;
 }
 
 function _isPhoneWidthViewport(){
-  return window.matchMedia('(max-width: 1024px)').matches;
+  return window.matchMedia('(max-width: 710px)').matches;
 }
 
 function _isTouchKeyboardViewport(){
@@ -185,7 +185,7 @@ function _syncKeyboardBottomInset(){
 // chrome shows or hides, visualViewport (or a plain resize on browsers without
 // it) changes height without a layout invalidation, leaving the phone layout
 // painted against stale geometry. Toggling a one-frame `viewport-reflow` class
-// (which applies a cheap GPU-promotion transform under the @media(max-width:1024px)
+// (which applies a cheap GPU-promotion transform under the @media(max-width:710px)
 // rule) forces a repaint, then we resync the workspace panel + sidebar aria.
 function _forceMobileViewportReflow(){
   _syncKeyboardBottomInset();
@@ -504,12 +504,12 @@ _installPwaSidebarSwipeGesture();
 //   (1) Click the already-active rail icon → collapse / expand the sidebar.
 //   (2) Cmd/Ctrl+B keyboard shortcut (VS Code convention).
 // Mobile is unaffected: the sidebar is an overlay there, and every collapse
-// code path is gated on `_isDesktopWidth()` (min-width:1025px).
+// code path is gated on `_isDesktopWidth()` (min-width:711px).
 // State is persisted via localStorage and survives reloads + bfcache.
 const _SIDEBAR_COLLAPSED_KEY='hermes-webui-sidebar-collapsed';
 
 function _isDesktopWidth(){
-  try{return window.matchMedia('(min-width:1025px)').matches;}catch(_){return true;}
+  try{return window.matchMedia('(min-width:711px)').matches;}catch(_){return true;}
 }
 
 function _isSidebarCollapsed(){

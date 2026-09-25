@@ -10,7 +10,7 @@ the "tapping the model picker does nothing / opens off-screen" symptom.
 Fix (PR #6105 rework, credit @webtecnica): on the phone path the dropdown is
 reparented to <body> and switched to position:fixed via a `--floating` class,
 exactly the working #profileDropdown idiom, so `fixed` is viewport-relative on
-ALL skins. Desktop (>640px) is unchanged: the menu stays an absolutely
+ALL skins. Desktop (>710px) is unchanged: the menu stays an absolutely
 positioned .composer-footer child.
 
 The node-executed test below is the load-bearing one: it runs the real
@@ -68,7 +68,7 @@ def test_no_geist_backdrop_override_added_for_model_dropdown():
 
 def test_position_fn_has_phone_reparent_branch():
     body = _function_body(UI_JS, "function _positionModelDropdown(")
-    assert "matchMedia('(max-width:1024px)')" in body, "phone breakpoint check missing"
+    assert "matchMedia('(max-width:710px)')" in body, "phone breakpoint check missing"
     assert "document.body.appendChild(dd)" in body, (
         "phone path must reparent the dropdown to <body> to escape the "
         ".composer-footer containing block (#6080)"
@@ -207,7 +207,7 @@ def test_dropdown_escapes_footer_containing_block_when_open_on_phone():
           }},
         }};
         globalThis.window = {{
-          matchMedia: (q) => ({{ matches: q.indexOf('max-width:1024px') !== -1 ? PHONE : false }}),
+          matchMedia: (q) => ({{ matches: q.indexOf('max-width:710px') !== -1 ? PHONE : false }}),
           innerWidth: 390, innerHeight: 800,
           visualViewport: {{ width: 390, height: 600, offsetTop: 0, offsetLeft: 0 }},
         }};
