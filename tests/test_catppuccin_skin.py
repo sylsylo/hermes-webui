@@ -48,7 +48,9 @@ def test_catppuccin_skin_is_opt_in_and_preserves_default_dark():
     init_script_idx = INDEX_HTML.find("var themes=")
     end_idx = INDEX_HTML.find("</script>", init_script_idx)
     init_block = INDEX_HTML[init_script_idx:end_idx]
-    assert "||'dark'" in init_block, "Default theme must remain dark"
+    # Fork default is 'light' + Icon blue; the opt-in property being guarded here
+    # is that adding a skin never force-migrates an existing user's choice.
+    assert "||'light'" in init_block, "Default theme must remain the configured baseline"
     forbidden = [
         "catppuccin-migrated",
         "skin-catppuccin-migrated",

@@ -64,8 +64,10 @@ def test_default_theme_is_still_dark():
     init_script_idx = INDEX_HTML.find("var themes=")
     end_idx = INDEX_HTML.find("</script>", init_script_idx)
     init_block = INDEX_HTML[init_script_idx:end_idx]
-    assert "||'dark'" in init_block, (
-        "Default theme must remain 'dark' (the existing baseline)"
+    # Fork default: this deployment runs light + the Icon blue skin, and the
+    # pre-paint fallback was switched to match the server default.
+    assert "||'light'" in init_block, (
+        "Default theme must remain the configured baseline ('light' in this fork)"
     )
 
 

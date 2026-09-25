@@ -3333,7 +3333,11 @@ window._mirrorSpeechSettingsFromServer=_mirrorSpeechSettingsFromServer;
     // saved choice before the extension runs.
     const lsSkinIsPendingExt=!!lsSkin&&lsSkin!=='default'&&!_VALID_SKINS.has(lsSkin)&&!_LEGACY_THEME_MAP[lsSkin];
     const lsHasExplicitSkin=lsSkin&&lsSkin!=='default';
-    const lsHasExplicitTheme=lsTheme&&['system','light','dark'].includes(lsTheme);
+    // Fork: the pre-paint script used to fabricate exactly {theme:'dark', skin:'default'}
+    // on a device with an empty localStorage. That pair is not a real choice — treat it as
+    // "no preference" so the server default applies (and is never pushed back over it).
+    const _legacyFabricatedAppearance=lsTheme==='dark'&&(!lsSkin||lsSkin==='default');
+    const lsHasExplicitTheme=!!lsTheme&&['system','light','dark'].includes(lsTheme)&&!_legacyFabricatedAppearance;
     const theme=lsHasExplicitTheme?lsAppearance.theme:srvAppearance.theme;
     const skin=lsHasExplicitSkin?(lsSkinIsPendingExt?lsSkin:lsAppearance.skin):srvAppearance.skin;
     localStorage.setItem('hermes-theme',theme);
