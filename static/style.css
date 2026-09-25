@@ -1335,92 +1335,140 @@
      cyan→blue emblem gradient (#08EBF1 → #3889FD) as the accent family. Light
      mode keeps the same hues in a frost palette so both modes read cleanly. ═══ */
   :root[data-skin="icon-blue"]{
-    /* Light "frost" palette. Structure is copied from Default's value ladder
-       (bg > sidebar > surface, i.e. cards sit *below* the page value), only the
-       hue is pivoted onto the emblem blue (hue ~205). Every text token clears
-       WCAG AA 4.5:1, and white on --accent (the user bubble fill) clears 5.3:1
-       — the old #0A7FC4 bubble was 4.33:1, just under AA. */
-    --bg:#F7FBFE;--sidebar:#EFF6FC;--surface:#E2ECF7;--code-bg:#E9F2FA;
-    --topbar-bg:rgba(239,246,252,.98);--main-bg:rgba(247,251,254,0.5);
-    --border:#C4D9EC;--border2:rgba(11,111,178,0.18);
-    --text:#0B2740;--strong:#04192C;--muted:#41637F;--em:#2A5578;
-    --accent:#0B6FB2;--blue:#1177C4;--gold:#0F5C9E;--accent-hover:#095B92;
-    --accent-bg:rgba(11,111,178,0.09);--accent-bg-strong:rgba(11,111,178,0.18);--accent-text:#0A619C;
-    --code-text:#0A5E97;--code-inline-bg:rgba(11,111,178,0.09);--pre-text:#0B2740;
-    --focus-ring:rgba(11,111,178,.35);--focus-glow:rgba(11,111,178,.10);
-    --input-bg:rgba(11,111,178,.04);--hover-bg:rgba(11,111,178,.06);
-    --error:#C62828;--success:#2F7D4F;--warning:#9C6510;--info:#0B6FB2;
-    --surface-subtle:rgba(11,111,178,.03);--surface-subtle-hover:rgba(11,111,178,.06);
-    --border-subtle:rgba(11,111,178,.10);--border-muted:rgba(11,111,178,.20);
-    --user-bubble-bg:#0B6FB2;--user-bubble-border:#095B92;--user-bubble-text:#FFFFFF;
+    /* Light "slate / sky" palette, ported from the Caducée mockup: near-white slate
+       page (#F8FAFC), WHITE surfaces separated by #E2E8F0 hairlines, slate text,
+       sky accent. The surface ladder is therefore INVERTED vs the Default theme
+       (surface sits *above* the page) — same choice Catppuccin light makes: a white
+       card cannot be distinguished from the page by value alone, only by its border
+       and its soft shadow.
+       Contrast (WCAG): #0F172A on --bg 17.1:1 (AAA); --muted 5.1:1; --accent-text
+       5.7:1 as text and 5.9:1 for white on the user bubble; all >= AA 4.5:1.
+       --accent is kept AA-safe as well: 62 base rules colour TEXT with it in light
+       mode, so the brighter mockup blue #0284C7 is applied explicitly to the
+       non-text surfaces (button fills, chip borders, focus rings) further down. */
+    --bg:#F8FAFC;--sidebar:#F8FAFC;--surface:#FFFFFF;--code-bg:#F1F5F9;
+    --topbar-bg:rgba(255,255,255,.95);--main-bg:rgba(248,250,252,0.5);
+    --border:#E2E8F0;--border2:rgba(15,23,42,0.10);
+    --text:#0F172A;--strong:#020617;--muted:#5C6C80;--em:#334155;
+    --accent:#0369A1;--blue:#0369A1;--gold:#0369A1;--accent-hover:#075985;
+    --accent-bg:#E0F2FE;--accent-bg-strong:#BAE6FD;--accent-text:#0369A1;
+    --code-text:#0369A1;--code-inline-bg:#F1F5F9;--pre-text:#0F172A;
+    --focus-ring:rgba(2,132,199,.35);--focus-glow:rgba(2,132,199,.12);
+    --input-bg:#FFFFFF;--hover-bg:rgba(15,23,42,.045);
+    --error:#DC2626;--success:#059669;--warning:#D97706;--info:#0284C7;
+    --surface-subtle:#F8FAFC;--surface-subtle-hover:#F1F5F9;
+    --border-subtle:#EDF2F7;--border-muted:#E2E8F0;
+    --user-bubble-bg:#0369A1;--user-bubble-border:#0369A1;--user-bubble-text:#FFFFFF;
     --user-bubble-placeholder:rgba(255,255,255,.78);
-    --user-selection-bg:rgba(4,25,44,.26);--user-selection-text:#FFFFFF;
+    --user-selection-bg:rgba(2,6,23,.28);--user-selection-text:#FFFFFF;
   }
-  /* ── Icon blue · light mode: the base light chrome is warm-grey (rgba(0,0,0,.x)
-     borders, brown/olive syntax). Re-tint both onto the blue family so nothing
-     neutral-grey or warm is left next to the azure surfaces. ── */
-  :root[data-skin="icon-blue"]:not(.dark) .composer-box{border-color:rgba(11,111,178,.20);}
+  /* ── Icon blue · light mode — "slate / sky" chrome ported from the Caducée mockup.
+     The base light chrome is warm-grey (rgba(0,0,0,.x) borders) and several shared
+     icon-blue rules below carry the DARK cyan values; everything light-mode specific
+     lives here so no warm-grey, no frost-blue tint and no cyan leak is left on the
+     pale slate page. Surfaces are white, separation comes from #E2E8F0 hairlines and
+     a soft slate shadow (a white card on #F8FAFC has no value contrast to lean on). ── */
+  /* Shell: sidebar / rail / right panel, split from the page by a hairline only. */
+  :root[data-skin="icon-blue"]:not(.dark) .sidebar,
+  :root[data-skin="icon-blue"]:not(.dark) .rail,
+  :root[data-skin="icon-blue"]:not(.dark) .rightpanel{background:var(--sidebar);border-color:var(--border);}
+  /* The mockup's header is a white/blurred band above the slate page — same here. */
+  :root[data-skin="icon-blue"]:not(.dark) .topbar,
+  :root[data-skin="icon-blue"]:not(.dark) .app-titlebar{background:var(--topbar-bg);border-bottom-color:var(--border);}
+  /* Session list: the mockup's secondary-container pill for the active row, white
+     cards with a hairline shadow on hover. */
+  :root[data-skin="icon-blue"]:not(.dark) .session-item.active{background:var(--accent-bg);border:1px solid var(--accent-bg-strong);color:var(--accent-text);}
+  :root[data-skin="icon-blue"]:not(.dark) .session-item:hover:not(.active){background:#FFFFFF;box-shadow:0 1px 2px rgba(15,23,42,.06);}
+  :root[data-skin="icon-blue"]:not(.dark) .session-date-header{color:#94A3B8;}
+  :root[data-skin="icon-blue"]:not(.dark) .sidebar-search input{border-color:var(--border);background:#FFFFFF;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+  /* Composer: raised white card, 16px, sky focus ring. */
+  :root[data-skin="icon-blue"]:not(.dark) .composer-box{background:#FFFFFF;border-color:rgba(203,213,225,.8);box-shadow:0 4px 20px rgba(15,23,42,.08);}
+  :root[data-skin="icon-blue"]:not(.dark) .composer-box:focus-within{border-color:#0284C7;box-shadow:0 4px 20px rgba(15,23,42,.08),0 0 0 3px rgba(2,132,199,.18);}
   :root[data-skin="icon-blue"]:not(.dark) .composer-wrap{border-top-color:var(--border);}
-  :root[data-skin="icon-blue"]:not(.dark) .sidebar-search input{border-color:rgba(11,111,178,.16);background:rgba(11,111,178,.05);}
-  /* #594-style light .app-dialog is hardcoded warm cream — every modal was beige
-     next to the azure surfaces. Same gradient shape, cool tint. */
-  :root[data-skin="icon-blue"]:not(.dark) .app-dialog{background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(233,242,250,.99));border-color:rgba(11,111,178,.20);box-shadow:0 12px 40px rgba(11,111,178,.18);}
-  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-input{background:rgba(11,111,178,.04);border-color:rgba(11,111,178,.20);}
-  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-btn{background:rgba(11,111,178,.06);}
-  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-btn:hover{background:rgba(11,111,178,.12);}
-  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-close:hover{background:rgba(11,111,178,.10);}
-  :root[data-skin="icon-blue"]:not(.dark) .chip,
-  :root[data-skin="icon-blue"]:not(.dark) .project-chip,
-  :root[data-skin="icon-blue"]:not(.dark) .cron-item{border-color:rgba(11,111,178,.16);background:rgba(11,111,178,.05);}
-  :root[data-skin="icon-blue"]:not(.dark) .suggestion,
-  :root[data-skin="icon-blue"]:not(.dark) .tool-card{border-color:rgba(11,111,178,.14);}
-  :root[data-skin="icon-blue"]:not(.dark) .tool-card:hover{border-color:rgba(11,111,178,.28);}
-  :root[data-skin="icon-blue"]:not(.dark) select,
-  :root[data-skin="icon-blue"]:not(.dark) .sm-btn{border-color:rgba(11,111,178,.16);}
-  :root[data-skin="icon-blue"]:not(.dark) .icon-btn:hover,
-  :root[data-skin="icon-blue"]:not(.dark) .panel-icon-btn:hover,
-  :root[data-skin="icon-blue"]:not(.dark) .file-item:hover{background:rgba(11,111,178,.07);}
-  :root[data-skin="icon-blue"]:not(.dark) .msg-body th,
-  :root[data-skin="icon-blue"]:not(.dark) .preview-md th{background:rgba(11,111,178,.05);}
-  :root[data-skin="icon-blue"]:not(.dark) .msg-body td,
-  :root[data-skin="icon-blue"]:not(.dark) .preview-md td{border-color:rgba(11,111,178,.14);}
-  /* A cyan glow under the primary button smears on a pale page — use a blue drop shadow */
+  /* Primary actions: flat sky-600 with white ink (the emblem gradient stays on the
+     dark variant), hover steps down to sky-700 so the label keeps its contrast. */
   :root[data-skin="icon-blue"]:not(.dark) .new-chat-btn,
-  :root[data-skin="icon-blue"]:not(.dark) .send-btn{box-shadow:0 1px 3px rgba(11,111,178,.26);}
+  :root[data-skin="icon-blue"]:not(.dark) .send-btn{background:#0284C7;background-image:none;border-color:#0284C7;color:#FFFFFF;font-weight:600;box-shadow:0 1px 3px rgba(2,132,199,.30);}
   :root[data-skin="icon-blue"]:not(.dark) .new-chat-btn:hover,
-  :root[data-skin="icon-blue"]:not(.dark) .send-btn:hover{box-shadow:0 2px 9px rgba(11,111,178,.30);}
-  /* Cool syntax highlighting (base light Prism palette is brown/olive/sienna) */
+  :root[data-skin="icon-blue"]:not(.dark) .send-btn:hover{background:#0369A1;background-image:none;border-color:#0369A1;color:#FFFFFF;box-shadow:0 2px 9px rgba(2,132,199,.35);}
+  /* Cards & modals: white with #E2E8F0 hairlines and a soft slate shadow. */
+  :root[data-skin="icon-blue"]:not(.dark) .tool-card,
+  :root[data-skin="icon-blue"]:not(.dark) .suggestion,
+  :root[data-skin="icon-blue"]:not(.dark) .cron-item{background:#FFFFFF;border-color:var(--border);box-shadow:0 1px 2px rgba(15,23,42,.05);}
+  :root[data-skin="icon-blue"]:not(.dark) .tool-card{border-left-color:var(--border-muted);}
+  :root[data-skin="icon-blue"]:not(.dark) .tool-card:hover{border-color:var(--accent-bg-strong);}
+  :root[data-skin="icon-blue"]:not(.dark) .file-item:hover{background:#F1F5F9;}
+  :root[data-skin="icon-blue"]:not(.dark) #mainSettings .settings-field{background:#FFFFFF;border-color:var(--border);}
+  /* #594-style light .app-dialog is hardcoded warm cream — every modal was beige
+     next to the slate page. Same gradient shape, cool tint. */
+  :root[data-skin="icon-blue"]:not(.dark) .app-dialog{background:linear-gradient(180deg,#FFFFFF,#F8FAFC);border-color:var(--border);box-shadow:0 12px 40px rgba(15,23,42,.12);}
+  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-input{background:#F1F5F9;border-color:var(--border);}
+  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-btn{background:#F1F5F9;}
+  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-btn:hover{background:#E2E8F0;}
+  :root[data-skin="icon-blue"]:not(.dark) .app-dialog-close:hover{background:#E2E8F0;}
+  /* Chips & badges: the mockup's sky-100 pill with a sky-200 border (radius 999px
+     comes from the base .chip rule). */
+  :root[data-skin="icon-blue"]:not(.dark) .chip,
+  :root[data-skin="icon-blue"]:not(.dark) .project-chip{border-color:var(--accent-bg-strong);background:var(--accent-bg);color:var(--accent-text);}
+  :root[data-skin="icon-blue"]:not(.dark) .session-tag,
+  :root[data-skin="icon-blue"]:not(.dark) .session-tree-badge{background:var(--accent-bg);color:var(--accent-text);}
+  :root[data-skin="icon-blue"]:not(.dark) .session-child-count{background:var(--accent-bg);color:var(--accent-text);}
+  :root[data-skin="icon-blue"]:not(.dark) .session-child-count:hover{background:var(--accent-bg-strong);color:var(--accent-text);}
+  /* Tables: slate header band, #E2E8F0 rules (mockup's triage table). */
+  :root[data-skin="icon-blue"]:not(.dark) .msg-body th,
+  :root[data-skin="icon-blue"]:not(.dark) .preview-md th{background:#F1F5F9;color:#475569;border-color:var(--border);}
+  :root[data-skin="icon-blue"]:not(.dark) .msg-body td,
+  :root[data-skin="icon-blue"]:not(.dark) .preview-md td{border-color:var(--border);}
+  :root[data-skin="icon-blue"]:not(.dark) .msg-body tr:hover td,
+  :root[data-skin="icon-blue"]:not(.dark) .preview-md tr:hover td{background:#F8FAFC;}
+  /* Controls & hovers: slate, not frost-blue. */
+  :root[data-skin="icon-blue"]:not(.dark) select,
+  :root[data-skin="icon-blue"]:not(.dark) .sm-btn{border-color:var(--border);}
+  :root[data-skin="icon-blue"]:not(.dark) .icon-btn:hover,
+  :root[data-skin="icon-blue"]:not(.dark) .panel-icon-btn:hover{background:#F1F5F9;}
+  :root[data-skin="icon-blue"]:not(.dark) .suggestion{border-radius:12px;}
+  /* Selection & scrollbar: slate/sky instead of the shared cyan. */
+  :root[data-skin="icon-blue"]:not(.dark) ::selection{background:rgba(2,132,199,.18);}
+  :root[data-skin="icon-blue"]:not(.dark)::-webkit-scrollbar-thumb{background:rgba(100,116,139,.30);}
+  :root[data-skin="icon-blue"]:not(.dark)::-webkit-scrollbar-thumb:hover{background:rgba(100,116,139,.48);}
+  :root[data-skin="icon-blue"]:not(.dark){scrollbar-color:rgba(100,116,139,.30) transparent;}
+  :root[data-skin="icon-blue"]:not(.dark) .img-lightbox-close:hover{background:rgba(2,132,199,.35);}
+  :root[data-skin="icon-blue"]:not(.dark) .img-lightbox-nav:hover{background:rgba(2,132,199,.45);}
+  /* Cool syntax highlighting on a slate scale (base light Prism palette is
+     brown/olive/sienna, the previous icon-blue draft was frost-blue). Kept in the
+     Tailwind family the mockup uses; the comment tone is the one value that must
+     stay readable on the slate-100 code background (>= 4.5:1). */
   :root[data-skin="icon-blue"]:not(.dark) .token.comment,
   :root[data-skin="icon-blue"]:not(.dark) .token.prolog,
   :root[data-skin="icon-blue"]:not(.dark) .token.doctype,
-  :root[data-skin="icon-blue"]:not(.dark) .token.cdata{color:#6E8399;font-style:italic;}
-  :root[data-skin="icon-blue"]:not(.dark) .token.punctuation{color:#4A6580;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.cdata{color:#5C6C80;font-style:italic;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.punctuation{color:#64748B;}
   :root[data-skin="icon-blue"]:not(.dark) .token.property,
   :root[data-skin="icon-blue"]:not(.dark) .token.tag,
   :root[data-skin="icon-blue"]:not(.dark) .token.boolean,
   :root[data-skin="icon-blue"]:not(.dark) .token.number,
   :root[data-skin="icon-blue"]:not(.dark) .token.constant,
   :root[data-skin="icon-blue"]:not(.dark) .token.symbol,
-  :root[data-skin="icon-blue"]:not(.dark) .token.deleted{color:#8C3C7A;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.deleted{color:#7C3AED;}
   :root[data-skin="icon-blue"]:not(.dark) .token.selector,
   :root[data-skin="icon-blue"]:not(.dark) .token.attr-name,
   :root[data-skin="icon-blue"]:not(.dark) .token.string,
   :root[data-skin="icon-blue"]:not(.dark) .token.char,
   :root[data-skin="icon-blue"]:not(.dark) .token.builtin,
-  :root[data-skin="icon-blue"]:not(.dark) .token.inserted{color:#0E7A6A;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.inserted{color:#047857;}
   :root[data-skin="icon-blue"]:not(.dark) .token.operator,
   :root[data-skin="icon-blue"]:not(.dark) .token.entity,
   :root[data-skin="icon-blue"]:not(.dark) .token.url,
   :root[data-skin="icon-blue"]:not(.dark) .language-css .token.string,
-  :root[data-skin="icon-blue"]:not(.dark) .style .token.string{color:#4E5AA8;}
+  :root[data-skin="icon-blue"]:not(.dark) .style .token.string{color:#475569;}
   :root[data-skin="icon-blue"]:not(.dark) .token.atrule,
   :root[data-skin="icon-blue"]:not(.dark) .token.attr-value,
-  :root[data-skin="icon-blue"]:not(.dark) .token.keyword{color:#1C6FBF;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.keyword{color:#0369A1;}
   :root[data-skin="icon-blue"]:not(.dark) .token.function,
-  :root[data-skin="icon-blue"]:not(.dark) .token.class-name{color:#7A4A9E;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.class-name{color:#6D28D9;}
   :root[data-skin="icon-blue"]:not(.dark) .token.regex,
   :root[data-skin="icon-blue"]:not(.dark) .token.important,
-  :root[data-skin="icon-blue"]:not(.dark) .token.variable{color:#9C4A7E;}
+  :root[data-skin="icon-blue"]:not(.dark) .token.variable{color:#9D174D;}
   :root.dark[data-skin="icon-blue"]{
     --bg:#04162E;--sidebar:#061E3D;--border:#123A63;--border2:rgba(8,235,241,0.20);
     --text:#E4F1FC;--muted:#7FA3C8;--accent:#20BAF7;--blue:#3889FD;--gold:#08EBF1;--code-bg:#051B36;
@@ -1435,7 +1483,6 @@
   }
   /* ── Icon blue skin: component-level overrides ── */
   /* Selection + chrome borders: cyan-tinted navy */
-  :root[data-skin="icon-blue"] ::selection{background:rgba(32,186,247,0.25);}
   :root.dark[data-skin="icon-blue"] ::selection{background:rgba(8,235,241,0.30);color:#F2FAFF;}
   :root[data-skin="icon-blue"] .app-titlebar,
   :root[data-skin="icon-blue"] .topbar{border-bottom-color:var(--border);}
@@ -1455,25 +1502,27 @@
   /* Message bubbles: navy assistant, brighter navy user with cyan edge */
   :root.dark[data-skin="icon-blue"] .msg-row[data-role="assistant"] .msg-body{background:#08203F;border-color:rgba(32,186,247,0.12);}
   :root.dark[data-skin="icon-blue"] .msg-row[data-role="user"] .msg-body{background:#0B2C55;border-color:rgba(8,235,241,0.28);}
-  /* Primary actions carry the emblem gradient itself */
-  :root[data-skin="icon-blue"] .new-chat-btn,
-  :root[data-skin="icon-blue"] .send-btn{background:linear-gradient(135deg,#08EBF1,#3889FD);border-color:#20BAF7;color:#04162E;font-weight:600;box-shadow:0 1px 3px rgba(8,235,241,0.25);}
-  :root[data-skin="icon-blue"] .new-chat-btn:hover,
-  :root[data-skin="icon-blue"] .send-btn:hover{background:linear-gradient(135deg,#5BF4F8,#5AA0FF);border-color:#08EBF1;color:#04162E;box-shadow:0 2px 10px rgba(32,186,247,0.42);}
+  /* Primary actions carry the emblem gradient itself — DARK ONLY: the light variant
+     paints them flat sky-600 with white ink (ported from the mockup). */
+  :root.dark[data-skin="icon-blue"] .new-chat-btn,
+  :root.dark[data-skin="icon-blue"] .send-btn{background:linear-gradient(135deg,#08EBF1,#3889FD);border-color:#20BAF7;color:#04162E;font-weight:600;box-shadow:0 1px 3px rgba(8,235,241,0.25);}
+  :root.dark[data-skin="icon-blue"] .new-chat-btn:hover,
+  :root.dark[data-skin="icon-blue"] .send-btn:hover{background:linear-gradient(135deg,#5BF4F8,#5AA0FF);border-color:#08EBF1;color:#04162E;box-shadow:0 2px 10px rgba(32,186,247,0.42);}
   /* Modals/overlays: stay on the same navy gradient (no mismatched chrome) */
   :root.dark[data-skin="icon-blue"] .app-dialog{background:linear-gradient(180deg,rgba(10,44,84,.99),rgba(4,22,46,.99));border-color:rgba(8,235,241,0.20);}
   :root.dark[data-skin="icon-blue"] .kanban-modal{background:linear-gradient(180deg,rgba(10,44,84,.99),rgba(4,22,46,.99));border-color:rgba(8,235,241,0.20);}
   :root.dark[data-skin="icon-blue"] .kanban-board-switcher-menu{background:linear-gradient(180deg,rgba(10,44,84,.99),rgba(4,22,46,.99));border-color:rgba(8,235,241,0.15);}
   /* Scrollbar: cyan tint */
-  :root[data-skin="icon-blue"]::-webkit-scrollbar-thumb{background:rgba(32,186,247,.25);border-radius:3px;}
-  :root[data-skin="icon-blue"]::-webkit-scrollbar-thumb:hover{background:rgba(32,186,247,.42);}
-  :root[data-skin="icon-blue"]{scrollbar-width:thin;scrollbar-color:rgba(32,186,247,.25) transparent;}
+  :root.dark[data-skin="icon-blue"]::-webkit-scrollbar-thumb{background:rgba(32,186,247,.25);border-radius:3px;}
+  :root.dark[data-skin="icon-blue"]::-webkit-scrollbar-thumb:hover{background:rgba(32,186,247,.42);}
+  :root.dark[data-skin="icon-blue"]{scrollbar-width:thin;scrollbar-color:rgba(32,186,247,.25) transparent;}
   :root.dark[data-skin="icon-blue"]::-webkit-scrollbar-thumb{background:rgba(8,235,241,.22);border-radius:3px;}
   :root.dark[data-skin="icon-blue"]::-webkit-scrollbar-thumb:hover{background:rgba(8,235,241,.38);}
   :root.dark[data-skin="icon-blue"]{scrollbar-width:thin;scrollbar-color:rgba(8,235,241,.22) transparent;}
-  /* Tool cards */
-  :root[data-skin="icon-blue"] .tool-card{background:rgba(32,186,247,0.03);border-color:rgba(32,186,247,0.10);}
-  :root[data-skin="icon-blue"] .tool-card:hover{border-color:rgba(32,186,247,0.22);}
+  /* Tool cards: cyan-tinted navy in dark; the light variant is a white card with a
+     slate hairline (see the light-mode block above). */
+  :root.dark[data-skin="icon-blue"] .tool-card{background:rgba(32,186,247,0.03);border-color:rgba(32,186,247,0.10);}
+  :root.dark[data-skin="icon-blue"] .tool-card:hover{border-color:rgba(32,186,247,0.22);}
   :root[data-skin="icon-blue"] .tool-card-running{background:var(--accent-bg);border-color:var(--accent-bg-strong);}
   :root[data-skin="icon-blue"] .tool-arg-key,
   :root[data-skin="icon-blue"] .tool-card-more{color:var(--accent-text);}
@@ -1489,10 +1538,10 @@
   :root.dark[data-skin="icon-blue"] .tree-num{color:#3889FD;}
   :root.dark[data-skin="icon-blue"] .tree-bool{color:#20BAF7;}
   /* Session badges/tags */
-  :root[data-skin="icon-blue"] .session-child-count{background:rgba(32,186,247,.14);color:var(--accent-text);}
-  :root[data-skin="icon-blue"] .session-child-count:hover{background:rgba(32,186,247,.24);color:var(--accent);}
-  :root[data-skin="icon-blue"] .session-tree-badge{background:rgba(32,186,247,.16);color:var(--accent-text);}
-  :root[data-skin="icon-blue"] .session-tag{background:rgba(32,186,247,.16);color:var(--accent-text);}
+  :root.dark[data-skin="icon-blue"] .session-child-count{background:rgba(32,186,247,.14);color:var(--accent-text);}
+  :root.dark[data-skin="icon-blue"] .session-child-count:hover{background:rgba(32,186,247,.24);color:var(--accent);}
+  :root.dark[data-skin="icon-blue"] .session-tree-badge{background:rgba(32,186,247,.16);color:var(--accent-text);}
+  :root.dark[data-skin="icon-blue"] .session-tag{background:rgba(32,186,247,.16);color:var(--accent-text);}
   :root.dark[data-skin="icon-blue"] .session-child-count{background:rgba(8,235,241,.14);color:#62D2FF;}
   :root.dark[data-skin="icon-blue"] .session-child-count:hover{background:rgba(8,235,241,.24);color:#9FE0FF;}
   :root.dark[data-skin="icon-blue"] .session-tree-badge{background:rgba(8,235,241,.16);color:#62D2FF;}
@@ -1506,8 +1555,8 @@
   :root.dark[data-skin="icon-blue"] .mcp-http,
   :root.dark[data-skin="icon-blue"] .mcp-status-active{color:#62D2FF;}
   /* Image lightbox */
-  :root[data-skin="icon-blue"] .img-lightbox-close:hover{background:rgba(32,186,247,.35);}
-  :root[data-skin="icon-blue"] .img-lightbox-nav:hover{background:rgba(32,186,247,.45);}
+  :root.dark[data-skin="icon-blue"] .img-lightbox-close:hover{background:rgba(32,186,247,.35);}
+  :root.dark[data-skin="icon-blue"] .img-lightbox-nav:hover{background:rgba(32,186,247,.45);}
   :root.dark[data-skin="icon-blue"] .img-lightbox-close:hover{background:rgba(8,235,241,.32);}
   :root.dark[data-skin="icon-blue"] .img-lightbox-nav:hover{background:rgba(8,235,241,.42);}
   /* Links: accent family (no glow — keep the icon's flat, clean look) */
