@@ -2365,7 +2365,7 @@
   .dashboard-external-badge{position:absolute;right:5px;top:5px;width:9px;height:9px;border-radius:2px;border:1px solid var(--accent);background:var(--sidebar);box-shadow:0 0 0 2px var(--sidebar);opacity:.95;}
   .dashboard-external-badge::after{content:'';position:absolute;right:-2px;top:-2px;width:5px;height:5px;border-top:1.5px solid var(--accent);border-right:1.5px solid var(--accent);}
   .sidebar-nav .dashboard-external-badge{right:8px;top:7px;width:8px;height:8px;}
-  @media(min-width:641px){.rail{display:flex;}.sidebar > .sidebar-nav{display:none;}}
+  @media(min-width:1025px){.rail{display:flex;}.sidebar > .sidebar-nav{display:none;}}
   /* Sidebar navigation tabs */
   .sidebar-nav{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:6px 8px 0;gap:2px;}
   .nav-tab{flex:1;padding:10px 4px 8px;font-size:20px;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;transition:color .15s;border-bottom:2px solid transparent;white-space:nowrap;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;}
@@ -3162,7 +3162,7 @@
   .mobile-overlay{display:none;}
   .pwa-sidebar-edge-guard{display:none;}
 
-  @media(min-width:901px){
+  @media(min-width:1025px){
     html[data-workspace-panel="closed"] .rightpanel{width:0 !important;min-width:0 !important;opacity:0;transform:translateX(14px);border-left-color:transparent;pointer-events:none;}
     .layout.workspace-panel-collapsed .rightpanel{width:0 !important;min-width:0 !important;opacity:0;transform:translateX(14px);border-left-color:transparent;pointer-events:none;}
     html[data-workspace-panel="closed"] .workspace-panel-edge-toggle{display:inline-flex;opacity:1;pointer-events:auto;transform:translateY(-50%);}
@@ -3173,13 +3173,13 @@
     .rightpanel{flex-shrink:1;min-width:180px;}
   }
 
-  /* Sidebar collapse breakpoint matches `_isDesktopWidth()` (min-width:641px) so
-     clicking the active rail icon in the tablet-portrait band (641–900px) actually
-     produces a visual change rather than silently flipping a class while CSS sits
-     out at @901. The rail itself becomes visible at min-width:641px, so any width
-     where the user can click the rail should also be a width where the collapse
-     rule applies. :not(.mobile-open) excludes the slide-in overlay below 641px. */
-  @media(min-width:641px){
+  /* Sidebar collapse breakpoint matches `_isDesktopWidth()` (min-width:1025px) so
+     clicking the active rail icon in the desktop band actually produces a visual
+     change rather than silently flipping a class while CSS sits out at @1025.
+     The rail itself becomes visible at min-width:1025px, so any width where the
+     user can click the rail should also be a width where the collapse rule
+     applies. :not(.mobile-open) excludes the slide-in drawer at ≤1024px. */
+  @media(min-width:1025px){
     .layout.sidebar-collapsed .sidebar:not(.mobile-open){width:0 !important;min-width:0;opacity:0;transform:translateX(-14px);border-right-color:transparent;pointer-events:none;overflow:hidden;}
     .layout.sidebar-collapsed .sidebar .resize-handle{display:none;}
     /* Flash prevention: an inline <script> in index.html sets this dataset on
@@ -3242,7 +3242,18 @@
     .composer-toolsets-wrap{display:block;}
   }
 
-  @media(max-width:640px){
+  /* ── Coquille mobile : navigation en tiroir, jusqu'à 1024px ──────────────────
+     Le seuil est ici 1024px (et 1025px pour les blocs « bureau » : .rail, repli de
+     la sidebar, .sidebar/.rightpanel {position:relative}, chrome du pied de message).
+     Toute règle déplacée dans ce bloc doit avoir son pendant dans les gates JS
+     `_isPhoneWidthViewport()` / `_isDesktopWidth()` (boot.js) — sinon la coquille CSS
+     et le JavaScript divergent (clics sans effet, ou repli invisible).
+     Motif : l'utilisateur lit la WebUI sur un appareil tactile 704px de large (933px
+     en paysage) ; avec l'ancien seuil de 640px il tombait dans la bande « tablette »,
+     liste ancrée sur le côté et pas assez de place. La densité téléphone (chips du
+     composeur en icône seule, paddings, grilles) reste volontairement sur la bande
+     ≤640px : bloc « Densité téléphone » juste après. */
+@media(max-width:1024px){
     /* Mobile PWA reflow guard (#3976): a one-frame GPU-promotion transform that
        _forceMobileViewportReflow() toggles via html.viewport-reflow to force a
        repaint after visualViewport/keyboard geometry changes. overflow-x:clip
@@ -3265,11 +3276,6 @@
     .app-titlebar-title{max-width:72vw;}
     .app-titlebar-sub{font-size:9px;padding:1px 5px;}
     .app-titlebar-title.long-pressing{opacity:.6;transition:opacity .1s;}
-    .system-health-panel.insights-card{gap:10px;padding:12px;}
-    .system-health-head{align-items:flex-start;}
-    .system-health-metrics{grid-template-columns:1fr;gap:8px;}
-    .system-health-label{font-size:10px;gap:4px;}
-    .system-health-bar{height:4px;}
     /* Overlay backdrop */
     .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
       z-index:199;-webkit-tap-highlight-color:transparent;}
@@ -3290,6 +3296,46 @@
     .rightpanel .resize-handle{display:none;}
     .rightpanel .panel-header{row-gap:8px;}
     .rightpanel .panel-actions{align-items:center;gap:8px;}
+    .send-btn{width:44px;height:44px;}
+    .ctx-indicator{width:44px;height:44px;}
+    .sidebar-nav{position:absolute;left:0;top:0;bottom:0;width:52px;display:flex;flex-direction:column;gap:4px;padding:8px 4px;border-right:1px solid var(--border);border-bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+    .sidebar-nav .nav-tab{flex:0 0 44px;width:44px;min-width:44px;min-height:44px;padding:0;border-bottom:0;border-radius:10px;}
+    .sidebar-nav .nav-tab svg{width:20px;height:20px;}
+    .sidebar-nav .nav-tab.active{background:var(--accent-bg);}
+    .sidebar-nav .nav-tab.active::before{left:-4px;top:50%;bottom:auto;transform:translateY(-50%);width:3px;height:16px;border-radius:0 2px 2px 0;}
+    .sidebar-nav .dashboard-link:not(.nav-action-visible),.sidebar-nav [data-nav-action-mirror]:not(.nav-action-visible){display:none!important;}
+    .sidebar .panel-view{height:100%;margin-left:52px;}
+    .sidebar .panel-head{padding-right:52px;}
+    .mobile-sidebar-close{display:inline-flex!important;position:absolute;right:4px;top:calc(4px + var(--app-titlebar-safe-top));width:44px;height:44px;z-index:4;background:var(--surface);border:1px solid var(--border);}
+    .sidebar .panel-icon-btn{min-width:44px;min-height:44px;width:auto;height:auto;}
+    /* Touch targets — minimum 44px */
+    .icon-btn,.mic-btn,.voice-mode-btn{min-width:44px;min-height:44px;}
+    .app-titlebar-hamburger,
+    .app-titlebar-new-chat,
+    .app-titlebar-reload,
+    .mobile-sidebar-close,
+    .sidebar-nav .nav-tab,
+    .icon-btn,
+    .send-btn{line-height:1;overflow:hidden;}
+    .app-titlebar-hamburger svg,
+    .app-titlebar-new-chat svg,
+    .app-titlebar-reload svg,
+    .mobile-sidebar-close svg,
+    .sidebar-nav .nav-tab svg,
+    .icon-btn svg,
+    .send-btn svg{display:block;flex:0 0 auto;}
+    .session-item{min-height:44px;padding:10px 40px 10px 12px;}
+    .session-item.streaming,.session-item.unread{padding-right:40px;}
+    .session-actions{opacity:1;pointer-events:auto;}
+  }
+
+  /* ── Densité téléphone (≤640px) : extrait à l'identique de l'ancien bloc coquille ── */
+  @media(max-width:640px){
+    .system-health-panel.insights-card{gap:10px;padding:12px;}
+    .system-health-head{align-items:flex-start;}
+    .system-health-metrics{grid-template-columns:1fr;gap:8px;}
+    .system-health-label{font-size:10px;gap:4px;}
+    .system-health-bar{height:4px;}
     /* Topbar adjustments */
     .topbar{padding:8px 12px;gap:8px;padding-left:max(12px,env(safe-area-inset-left,0));padding-right:max(12px,env(safe-area-inset-right,0));}
     .topbar-title{font-size:14px;}
@@ -3354,9 +3400,7 @@
     /* icon-only composer chips continue below mobile widths */
     .composer-divider{display:none;}
     .composer-status{flex:0 1 auto;min-width:0;max-width:96px;font-size:10px;text-align:right;}
-    .send-btn{width:44px;height:44px;}
     .ctx-indicator-wrap{display:none!important;}
-    .ctx-indicator{width:44px;height:44px;}
     .ctx-tooltip{right:-4px;min-width:190px;max-width:220px;}
     .composer-terminal-panel{width:calc(100% - 20px);}
     .composer-terminal-panel.is-collapsed{bottom:-1px;width:calc(100% - 28px);}
@@ -3370,35 +3414,6 @@
     .composer-terminal-action{padding:5px 7px;font-size:10px;white-space:nowrap;}
     #terminalWorkspaceLabel{max-width:110px;}
     #terminalDockWorkspaceLabel{max-width:96px;}
-    .sidebar-nav{position:absolute;left:0;top:0;bottom:0;width:52px;display:flex;flex-direction:column;gap:4px;padding:8px 4px;border-right:1px solid var(--border);border-bottom:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
-    .sidebar-nav .nav-tab{flex:0 0 44px;width:44px;min-width:44px;min-height:44px;padding:0;border-bottom:0;border-radius:10px;}
-    .sidebar-nav .nav-tab svg{width:20px;height:20px;}
-    .sidebar-nav .nav-tab.active{background:var(--accent-bg);}
-    .sidebar-nav .nav-tab.active::before{left:-4px;top:50%;bottom:auto;transform:translateY(-50%);width:3px;height:16px;border-radius:0 2px 2px 0;}
-    .sidebar-nav .dashboard-link:not(.nav-action-visible),.sidebar-nav [data-nav-action-mirror]:not(.nav-action-visible){display:none!important;}
-    .sidebar .panel-view{height:100%;margin-left:52px;}
-    .sidebar .panel-head{padding-right:52px;}
-    .mobile-sidebar-close{display:inline-flex!important;position:absolute;right:4px;top:calc(4px + var(--app-titlebar-safe-top));width:44px;height:44px;z-index:4;background:var(--surface);border:1px solid var(--border);}
-    .sidebar .panel-icon-btn{min-width:44px;min-height:44px;width:auto;height:auto;}
-    /* Touch targets — minimum 44px */
-    .icon-btn,.mic-btn,.voice-mode-btn{min-width:44px;min-height:44px;}
-    .app-titlebar-hamburger,
-    .app-titlebar-new-chat,
-    .app-titlebar-reload,
-    .mobile-sidebar-close,
-    .sidebar-nav .nav-tab,
-    .icon-btn,
-    .send-btn{line-height:1;overflow:hidden;}
-    .app-titlebar-hamburger svg,
-    .app-titlebar-new-chat svg,
-    .app-titlebar-reload svg,
-    .mobile-sidebar-close svg,
-    .sidebar-nav .nav-tab svg,
-    .icon-btn svg,
-    .send-btn svg{display:block;flex:0 0 auto;}
-    .session-item{min-height:44px;padding:10px 40px 10px 12px;}
-    .session-item.streaming,.session-item.unread{padding-right:40px;}
-    .session-actions{opacity:1;pointer-events:auto;}
     /* Empty state */
     .empty-state h2{font-size:18px;}
     .empty-state p{font-size:13px;}
@@ -3792,9 +3807,9 @@ body.tts-enabled .msg-tts-btn{display:inline-flex;align-items:center;}
 }
 .resize-handle:hover,.resize-handle.dragging{background:var(--accent);}
 /* Desktop-only: position:relative for sidebar/rightpanel resize handles.
-   Must be scoped to min-width:641px so it doesn't override the mobile
-   position:fixed slide-in overlay set in the max-width:640px @media block above. */
-@media(min-width:641px){
+   Must be scoped to min-width:1025px so it doesn't override the mobile
+   position:fixed slide-in drawer set in the max-width:1024px @media block above. */
+@media(min-width:1025px){
   .sidebar{position:relative;}
   .rightpanel{position:relative;}
 }
@@ -6392,7 +6407,7 @@ main.main > #mainPlugin{display:none;}
 .assistant-turn:focus-within .msg-foot { opacity: 1; }
 /* Desktop/tablet keeps the per-turn jump affordance discoverable without
    exposing the quieter timestamp/action chrome until hover or keyboard focus. */
-@media (min-width: 641px) {
+@media (min-width: 1025px) {
   .msg-row[data-role="assistant"] .msg-foot:has(.msg-question-jump-btn),
   .assistant-turn .msg-foot:has(.msg-question-jump-btn) {
     opacity: 1;
@@ -6729,7 +6744,7 @@ main.main > .main-view:not([id="mainChat"]):not([id="mainSettings"]) .main-view-
 .detail-form-row .skill-picker-tags{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;}
 
 /* Mobile: message controls always visible on touch screens (no hover available) */
-@media(max-width:640px){
+@media(max-width:640px),(hover:none) and (pointer:coarse){
   .msg-row[data-role="user"] .msg-foot,
   .msg-row[data-role="assistant"] .msg-foot,
   .assistant-turn .msg-foot{opacity:1;}

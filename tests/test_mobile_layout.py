@@ -2,7 +2,12 @@
 Mobile layout regression tests — run on every QA pass.
 
 These tests check that the CSS and HTML structure required for correct
-mobile rendering (375px–640px viewport widths) is intact after every change.
+mobile rendering is intact after every change. Two width bands are tested:
+  - the mobile SHELL band (≤SHELL_MAX = 1024px): full-screen session drawer,
+    hamburger, in-sidebar tab strip, right panel as a slide-over, touch targets;
+  - the phone DENSITY band (≤640px): icon-only composer chips, paddings, grids.
+The shell band is pinned to the JS gates in boot.js/ui.js (see
+test_mobile_shell_band_is_1024_and_density_band_stays_640).
 They are static checks (no server needed) that catch common regressions:
 
   - Mobile breakpoints present for key layout elements
@@ -23,6 +28,16 @@ from html.parser import HTMLParser
 REPO = pathlib.Path(__file__).parent.parent
 HTML = (REPO / "static" / "index.html").read_text(encoding="utf-8")
 CSS  = (REPO / "static" / "style.css").read_text(encoding="utf-8")
+
+# ── Bandes de largeur (à garder synchrones avec style.css ET boot.js) ──────────
+# SHELL_MAX   : coquille mobile — tiroir plein écran, hamburger, bandeau d'onglets
+#               dans la sidebar, panneau droit en slide-over, cibles tactiles.
+# DESKTOP_MIN : bande bureau — rail visible, repli de la sidebar,
+#               .sidebar/.rightpanel{position:relative}, chrome du pied de message.
+# La densité téléphone (chips du composeur en icône seule, paddings, grilles) reste
+# volontairement sur la bande ≤640px et se teste avec _max_width_media_blocks(640).
+SHELL_MAX = 1024
+DESKTOP_MIN = 1025
 
 
 def _max_width_media_blocks(width_px):
@@ -210,7 +225,7 @@ def test_settings_system_version_controls_wrap_on_phone_widths():
 
 def test_rightpanel_mobile_slide_over_css():
     """Right panel must have position:fixed slide-over CSS for mobile."""
-    # At max-width:900px the rightpanel should be position:fixed, off-screen right
+    # Dans la bande coquille (≤SHELL_MAX px) le panneau droit est position:fixed, hors écran à droite
     assert "position:fixed" in CSS, \
         "style.css must have position:fixed for rightpanel mobile slide-over"
     assert ".rightpanel.mobile-open{right:0" in CSS or ".rightpanel.mobile-open {right:0" in CSS, \
@@ -221,9 +236,11 @@ def test_rightpanel_mobile_slide_over_css():
         "mobile rightpanel width variable should be used in compact mode rules"
     assert "calc(-1 * var(--mobile-rightpanel-width))" in CSS, \
         "closed mobile rightpanel should be off-canvas using a width-based negative offset"
-    mobile_640 = re.search(r'@media\(max-width:640px\)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}', CSS, re.DOTALL)
-    assert mobile_640, "@media(max-width:640px) block missing from style.css"
-    rightpanel_block = mobile_640.group(1)
+    shell_match = re.search(
+        r'@media\(max-width:%dpx\)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}' % SHELL_MAX,
+        CSS, re.DOTALL)
+    assert shell_match, f"@media(max-width:{SHELL_MAX}px) block missing from style.css"
+    rightpanel_block = shell_match.group(1)
     assert re.search(r'\.rightpanel\{[^}]*width:\s*var\(--mobile-rightpanel-width\)\s*!important',
                      rightpanel_block, re.DOTALL), \
         ".rightpanel width must use var(--mobile-rightpanel-width) with !important in mobile block"
@@ -248,11 +265,11 @@ def test_rightpanel_mobile_slide_over_css():
 
 def test_mobile_sidebar_drawer_uses_transform_instead_of_left():
     """Mobile sidebar drawer open/close must animate with transform not left offsets."""
-    mobile_640 = "\n".join(_max_width_media_blocks(640))
-    assert mobile_640, "Missing @media(max-width:640px) block in style.css"
+    shell_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
+    assert shell_css, f"Missing @media(max-width:{SHELL_MAX}px) block in style.css"
 
-    sidebar_rule = _declarations(_rule_body(mobile_640, ".sidebar"))
-    sidebar_open_rule = _declarations(_rule_body(mobile_640, ".sidebar.mobile-open"))
+    sidebar_rule = _declarations(_rule_body(shell_css, ".sidebar"))
+    sidebar_open_rule = _declarations(_rule_body(shell_css, ".sidebar.mobile-open"))
 
     assert sidebar_rule.get("left") == "0", \
         "Mobile .sidebar should keep left:0 in the drawer rules"
@@ -451,7 +468,7 @@ def test_mobile_overlay_present():
         "#mobileOverlay element missing from index.html"
     assert "mobile-overlay" in CSS, \
         ".mobile-overlay CSS rule missing from style.css"
-    mobile_css = "\n".join(_max_width_media_blocks(640))
+    mobile_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
     assert re.search(r'\.mobile-overlay\.visible\{[^}]*display:\s*none', mobile_css), (
         "Full-screen mobile sidebar must not dim the PWA status/safe-area with a backdrop"
     )
@@ -465,7 +482,7 @@ def test_mobile_sidebar_edge_guard_claims_body_edge_only():
     assert ".pwa-sidebar-edge-guard{display:none;}" in CSS.replace(" ", ""), (
         "edge guard should be hidden outside the phone layout"
     )
-    mobile_css = "\n".join(_max_width_media_blocks(640))
+    mobile_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
     guard = _declarations(_rule_body(mobile_css, ".pwa-sidebar-edge-guard"))
     assert guard.get("display") == "block"
     assert guard.get("position") == "fixed"
@@ -494,15 +511,15 @@ def test_sidebar_nav_present():
 
 def test_mobile_keeps_panel_navigation_available():
     """Phone breakpoint must keep panel navigation available inside the drawer."""
-    mobile_css = "\n".join(_max_width_media_blocks(640))
-    assert mobile_css, "Missing @media(max-width:640px) block in style.css"
+    mobile_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
+    assert mobile_css, f"Missing @media(max-width:{SHELL_MAX}px) block in style.css"
     assert ".sidebar-nav" in mobile_css, \
         "Phone panel navigation must remain available in the hamburger drawer"
 
 
 def test_mobile_sidebar_opens_as_full_screen_surface_with_panel_rail():
     """Phone sidebar should open full-screen while keeping the panel rail visible."""
-    mobile_css = "\n".join(_max_width_media_blocks(640))
+    mobile_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
     assert re.search(r'\.app-titlebar-hamburger,\s*\.app-titlebar-spacer\{[^}]*display:\s*flex', mobile_css), (
         "Phone titlebar hamburger must stay visible"
     )
@@ -906,13 +923,13 @@ def test_titlebar_new_chat_button_mobile_visibility_css():
     """Keep the titlebar new-chat control mobile-only and reuse reload button styling."""
     base_rule = _declarations(_rule_body(CSS, ".app-titlebar-new-chat"))
     assert base_rule.get("display") == "none", "app-titlebar new chat button must be hidden by default"
-    mobile_blocks = "".join(_max_width_media_blocks(640))
+    mobile_blocks = "".join(_max_width_media_blocks(SHELL_MAX))
     mobile_rule = _declarations(_rule_body(mobile_blocks, ".app-titlebar-new-chat"))
     assert mobile_rule.get("display") == "inline-flex", (
         "app-titlebar new chat button must be visible in mobile layout rules"
     )
     desktop_css = re.sub(
-        r"@media\(max-width:640px\).*",
+        r"@media\(max-width:(?:1024|640)px\).*",
         "",
         CSS,
         flags=re.S,
@@ -955,7 +972,7 @@ def test_titlebar_reload_button_visibility_css_contract():
         "titlebar reload should remain inline-flex in standalone/fullscreen"
     )
 
-    mobile_blocks = "".join(_max_width_media_blocks(640))
+    mobile_blocks = "".join(_max_width_media_blocks(SHELL_MAX))
     mobile_rule = _declarations(_rule_body(mobile_blocks, ".app-titlebar-reload"))
     assert _display_inline_flex(mobile_rule), (
         "app-titlebar reload button should be visible in phone-width titlebar rules"
@@ -1154,7 +1171,9 @@ def test_legacy_320px_composer_tightens_spacing_without_shrinking_targets():
         "320px left controls need compact gutters to fit config before the fixed send button"
     assert wrap.get("padding-left") == "8px!important", \
         "320px composer should reclaim a little side padding without shrinking touch targets"
-    assert ".send-btn{width:44px;height:44px;" in _composer_phone_media_block(), \
+    # Le .send-btn 44px a suivi la coquille (≤1024px) : les écrans 641–1024px du
+    # téléphone doivent eux aussi garder la cible tactile.
+    assert ".send-btn{width:44px;height:44px;" in "\n".join(_max_width_media_blocks(SHELL_MAX)), \
         "narrow spacing override must not shrink the 44px send button"
     assert ".composer-mobile-config-btn{box-sizing:border-box;position:relative;display:inline-flex!important;width:44px;height:44px" in _composer_phone_media_block(), \
         "narrow spacing override must not shrink the 44px mobile config button"
@@ -1496,7 +1515,9 @@ def test_mobile_composer_primary_controls_keep_touch_friendly_sizing():
             assert declarations.get("min-width") == "44px", \
                 f"{selector} must keep a 44px minimum width on phones"
 
-    send = _declarations(_rule_body(mobile_css, ".send-btn"))
+    # Le .send-btn 44px est dans la bande coquille (≤1024px), pas dans la densité.
+    shell_css = "\n".join(_max_width_media_blocks(SHELL_MAX))
+    send = _declarations(_rule_body(shell_css, ".send-btn"))
     assert send.get("width") == "44px", ".send-btn must keep 44px width on phones"
     assert send.get("height") == "44px", ".send-btn must keep 44px height on phones"
 
@@ -1520,7 +1541,9 @@ def test_mobile_composer_primary_controls_keep_touch_friendly_sizing():
     assert "aria-hidden" in _ring_tag, \
         "the context ring is decorative overlay — it must be aria-hidden so it doesn't steal the config button's role/touch target"
 
-    icon_btn = _declarations(_rule_body(mobile_css, ".icon-btn"))
+    # Les cibles 44px des boutons d'icône (.icon-btn/.mic-btn/.voice-mode-btn) ont suivi la
+    # coquille mobile (≤1024px) avec le reste du dimensionnement tactile.
+    icon_btn = _declarations(_rule_body(shell_css, ".icon-btn"))
     assert icon_btn.get("min-width") == "44px", \
         ".icon-btn controls such as attach/mic must keep 44px minimum width on phones"
     assert icon_btn.get("min-height") == "44px", \
@@ -1708,3 +1731,80 @@ def test_mobile_enter_does_not_affect_desktop_logic():
     # The else branch (desktop, sends on Enter without Shift) must still be present
     assert "if(!e.shiftKey){e.preventDefault();send();" in boot_js, \
         "Desktop Enter-to-send logic (else branch) must still be present in boot.js"
+
+
+# ── Cohérence de la bande coquille (CSS ↔ JS) ─────────────────────────────────
+
+def _media_block_bodies(css, condition):
+    """Every body of an @media(<condition>){...} block, via balanced braces."""
+    pattern = re.compile(r'@media\s*\(\s*' + re.escape(condition) + r'\s*\)\s*\{')
+    bodies = []
+    for m in pattern.finditer(css):
+        i = m.end() - 1
+        depth = 0
+        for idx in range(i, len(css)):
+            if css[idx] == '{':
+                depth += 1
+            elif css[idx] == '}':
+                depth -= 1
+                if depth == 0:
+                    bodies.append(css[i + 1:idx])
+                    break
+    return bodies
+
+
+def test_mobile_shell_band_is_1024_and_density_band_stays_640():
+    """The mobile navigation shell covers ≤SHELL_MAX (1024px), the phone density
+    rules stay ≤640px, and the JS gates use the same two numbers.
+
+    These surfaces must move together: a shell rule without its JS gate makes the
+    hamburger/rail silently inert (or the collapse invisible), and a density rule
+    promoted to the shell band degrades a 700–1024px viewport instead of helping it.
+    """
+    shell = "\n".join(_media_block_bodies(CSS, f'max-width:{SHELL_MAX}px'))
+    density = "\n".join(_media_block_bodies(CSS, 'max-width:640px'))
+    assert shell, f"@media(max-width:{SHELL_MAX}px) shell band missing from style.css"
+    assert density, "@media(max-width:640px) density band missing from style.css"
+
+    # Navigation shell lives in the shell band…
+    for marker in (
+        '.sidebar{position:fixed',
+        '.sidebar.mobile-open{transform:translateX(0);}',
+        '.rightpanel{display:flex!important;position:fixed',
+        '.mobile-sidebar-close{display:inline-flex',
+        '.sidebar-nav{position:absolute',
+    ):
+        assert marker in shell, f"{marker} must live in the ≤{SHELL_MAX}px shell band"
+
+    # …while phone density stays down in the 640px band (and is NOT promoted).
+    for density_marker in ('.composer-profile-chip', '.messages-inner', '.system-health-metrics'):
+        assert density_marker in density, f"{density_marker} must stay in the ≤640px density band"
+    assert '.composer-profile-chip' not in shell, (
+        "composer density rules must not be promoted into the shell band: "
+        "a 700–1024px viewport has room for the labelled chips"
+    )
+
+    # Desktop band keeps the rail + the relative positioning used by the resize handles.
+    desktop = "\n".join(_media_block_bodies(CSS, f'min-width:{DESKTOP_MIN}px'))
+    assert desktop, f"@media(min-width:{DESKTOP_MIN}px) desktop band missing from style.css"
+    assert '.rail{display:flex;}' in desktop, "the persistent rail must be desktop-only"
+    assert '.sidebar{position:relative;}' in desktop, (
+        "position:relative must be scoped to the desktop band, or it overrides the drawer"
+    )
+
+    # JS gates follow the same two numbers.
+    boot = (REPO / "static" / "boot.js").read_text(encoding="utf-8")
+    for token in (f'(max-width:{SHELL_MAX}px)', f'(max-width: {SHELL_MAX}px)'):
+        if token in boot:
+            break
+    else:
+        raise AssertionError(f"boot.js must query the shell band (≤{SHELL_MAX}px)")
+    assert f'(min-width:{DESKTOP_MIN}px)' in boot or f'(min-width: {DESKTOP_MIN}px)' in boot, \
+        f"boot.js must treat ≥{DESKTOP_MIN}px as desktop"
+
+    for rel in ("static/boot.js", "static/ui.js", "static/outline.js"):
+        js = (REPO / rel).read_text(encoding="utf-8")
+        assert f'(max-width:{SHELL_MAX}px)' in js or f'(max-width: {SHELL_MAX}px)' in js, \
+            f"{rel} must use the shell band, not a stale breakpoint"
+        assert '(max-width:640px)' not in js and '(max-width: 640px)' not in js, \
+            f"{rel} must not gate layout behaviour on the 640px density band"

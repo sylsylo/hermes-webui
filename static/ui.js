@@ -3866,7 +3866,7 @@ function _positionModelDropdown(){
   const panel=$('composerMobileConfigPanel');
   const anchor=(panel&&panel.classList.contains('open')&&mobileAction)?mobileAction:(chip&&chip.offsetParent?chip:mobileAction);
   if(!anchor) return;
-  const isPhone=typeof window.matchMedia==='function'&&window.matchMedia('(max-width:640px)').matches;
+  const isPhone=typeof window.matchMedia==='function'&&window.matchMedia('(max-width:1024px)').matches;
   if(isPhone){
     // #6080: .composer-footer sets container-type:inline-size (and a
     // backdrop-filter under the Geist Contrast skin) — both establish a fixed
@@ -3914,7 +3914,7 @@ function _positionModelDropdown(){
     dd.style.top=`${Math.max(contentTop,Math.min(top,viewportBottom-margin-visibleHeight))}px`;
     return;
   }
-  // Desktop (>640px): keep the current master behaviour — an absolutely
+  // Desktop (>1024px): keep the current master behaviour — an absolutely
   // positioned .composer-footer child. Restore the element into the footer (in
   // case a prior phone open moved it to <body>) and clear the phone inline
   // styles so the desktop CSS anchor is byte-for-byte identical to master.
@@ -5650,7 +5650,7 @@ document.addEventListener('keydown',function(e){
 });
 
 window.addEventListener('resize',function(){
-  if(window.matchMedia && !window.matchMedia('(max-width: 640px)').matches){
+  if(window.matchMedia && !window.matchMedia('(max-width: 1024px)').matches){
     closeMobileComposerConfig();
     closeModelDropdown();
     closeReasoningDropdown();

@@ -46,10 +46,14 @@ class TestWorkspacePanelCollapsePriority:
     def test_rightpanel_is_a_size_container(self):
         """The right panel must declare itself as an inline-size container so
         its descendants can run @container queries against the panel's width."""
-        # Look at the .rightpanel rule body
-        idx = STYLE_CSS.find(".rightpanel{")
-        assert idx >= 0, ".rightpanel rule not found"
-        rule = STYLE_CSS[idx: idx + 1200]
+        # Anchor on the container declaration, not on the first `.rightpanel{` in the
+        # file: that first match now belongs to a skin rule
+        # (`:root[data-skin="icon-blue"]:not(.dark) .rightpanel{...}`), so scanning
+        # forward from it never reached the base rule that declares the container.
+        marker = STYLE_CSS.find("container-name:rightpanel")
+        assert marker >= 0, ".rightpanel container declaration not found"
+        rule = STYLE_CSS[max(0, marker - 1200): marker + 200]
+        assert ".rightpanel{" in rule, ".rightpanel rule not found"
         assert "container-type:inline-size" in rule, (
             ".rightpanel must declare container-type:inline-size for the "
             "header collapse-priority @container queries to work."
