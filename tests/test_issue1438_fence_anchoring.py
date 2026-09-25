@@ -211,9 +211,16 @@ def test_renderUserFencedBlocks_fence_regex_is_line_anchored():
 
 
 def test_stripForTTS_fence_regex_is_line_anchored():
-    """_stripForTTS must use the line-anchored fence regex too."""
+    """_stripForTTS must use a line-anchored fence regex too (#1438).
+
+    The SHAPE changed with the local "read code aloud" fix (commit 9d6a46b0):
+    fences are now removed line by line (`^[ ]{0,3}```[^\\n]*$` under /m, opening and
+    closing alike, content kept) instead of matching a whole fenced block. The
+    guarantee this test locks is unchanged and is what matters: the pattern is
+    anchored `^…$` + /m, so a mid-line ``` can never be treated as a fence.
+    """
     assert re.search(
-        r"text=text\.replace\(/\(\^\|\\n\)\[ \]\{0,3\}```\(\?:\[\\s\\S\]\*\?\\n\)\?\[ \]\{0,3\}```\(\?=\\n\|\$\)/g",
+        r"text=text\.replace\(/\^\[ \]\{0,3\}```\[\^\\n\]\*\$/gm",
         UI_JS,
     ), "_stripForTTS fence regex is not line-anchored — regression of #1438"
 
@@ -267,9 +274,13 @@ def test_diff_fence_with_inner_backticks_in_content():
     # (ONE backslash + 'n'). In a Python raw string, r"\\n" compiles to a regex pattern
     # matching ONE literal backslash followed by 'n'.
     new_matches = UI_JS.count(r"[ ]{0,3}\2`*[ \t]*(?=\n|$)")
-    old_tts_matches = re.findall(r"```\(\?=\\n\|\$\)", UI_JS)
-    assert new_matches >= 2 and len(old_tts_matches) >= 1, (
+    # _stripForTTS no longer has a distinct "close fence": since the local
+    # read-code-aloud fix it strips opening and closing fences line by line, so
+    # there is no `(?=\n|$)` closer to count. Its line anchoring is asserted by
+    # test_stripForTTS_fence_regex_is_line_anchored; what must not come back here
+    # is the old unanchored whole-block regex.
+    assert new_matches >= 2 and "text=text.replace(/```[\\s\\S]*?```/g" not in UI_JS, (
         f"renderMd/_renderUserFencedBlocks must have fence-length-aware line-anchored "
-        f"closers and _stripForTTS must keep a line-anchored closer; found "
-        f"new={new_matches}, tts={len(old_tts_matches)}"
+        f"closers and _stripForTTS must keep a line-anchored boundary; found "
+        f"new={new_matches}"
     )

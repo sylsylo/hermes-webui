@@ -3650,8 +3650,20 @@
  * subsequent renderMd() passes and is not subject to inline-style cascade
  * collisions with the .msg-action-btn parent (#1409). */
 .msg-tts-btn{display:none;}
-body.tts-enabled .msg-tts-btn{display:inline-flex;align-items:center;}
+body.tts-enabled .msg-tts-btn{display:inline-flex;align-items:center;position:relative;}
 .msg-tts-btn[data-speaking="1"]{color:var(--accent);animation:tts-pulse 1s ease-in-out infinite;}
+/* Loading state: synthesis takes seconds before the first sound, so the icon is
+   swapped for a rotating ring (same idea as the streaming indicator of the
+   session list) instead of leaving the button looking inert. Set by
+   _ttsBtnLoadingStart() in ui.js, cleared as soon as playback starts. */
+.msg-tts-btn[data-loading="1"]{color:var(--accent);}
+.msg-tts-btn[data-loading="1"] svg{visibility:hidden;}
+.msg-tts-btn[data-loading="1"]::after{
+  content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;
+  width:12px;height:12px;margin:-6px 0 0 -6px;border:1.5px solid transparent;
+  border-top-color:currentColor;border-right-color:currentColor;
+  border-radius:50%;animation:spin 1s linear infinite;
+}
 @keyframes tts-pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
 /* ── Edit message inline ── */

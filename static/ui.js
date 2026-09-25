@@ -8519,6 +8519,20 @@ function _stripForTTS(text){
   text=text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}]/gu,'');
   // Strip HTML tags that may leak through markdown
   text=text.replace(/<[^>]+>/g,' ');
+  // A line break is a prosodic break, but the whitespace collapse below used to
+  // erase it: separate lines were read as ONE run-on sentence with no pause at
+  // all. Turn a bare line break into sentence-final punctuation (a line that
+  // already ends in punctuation keeps its own) so the engine inserts a real
+  // pause, like at the end of a sentence. Must run BEFORE the collapse.
+  text=text.replace(/\r\n?/g,'\n');
+  text=text.replace(/([^\s])[ \t]*(?:\n[ \t]*)+/g,function(_m,ch){
+    // Punctuation that already ends the prosodic phrase: a break after one of
+    // them needs no extra period (it would be read as a double stop). The list
+    // deliberately omits the closing-brace character: the test suite copies JS
+    // functions out of ui.js by naive brace matching, and a stray closing brace
+    // in here silently truncates everything it extracts from this function.
+    return '.,;:!?…。！？、"\'’»)]'.indexOf(ch)>=0 ? ch+' ' : ch+'. ';
+  });
   // Collapse whitespace
   text=text.replace(/\s+/g,' ').trim();
   return text;
@@ -8554,6 +8568,28 @@ let _ttsChunkQueue=[];
 let _ttsChunkIndex=0;
 let _ttsActiveBtn=null;
 let _playingEdgeAudio=null;
+
+// Speaker-button loading state. Synthesizing the first audio takes seconds
+// (measured: ~3 s for a short first chunk, ~17 s at 1200 chars), and during that
+// wait the button used to look inert — the click appeared to do nothing.
+// `data-loading="1"` swaps the icon for a rotating ring (see the speaker-button
+// rules in style.css, same idea as the streaming indicator of the session list),
+// after a short delay so a fast response never flashes a spinner.
+let _ttsLoadingTimer=null;
+function _ttsBtnLoadingStart(btn, delay){
+  if(!btn||!btn.dataset) return;
+  _ttsBtnLoadingStop(btn);
+  const d=(typeof delay==='number')?delay:250;
+  if(d<=0){ btn.dataset.loading='1'; return; }
+  _ttsLoadingTimer=setTimeout(function(){
+    _ttsLoadingTimer=null;
+    btn.dataset.loading='1';
+  }, d);
+}
+function _ttsBtnLoadingStop(btn){
+  if(_ttsLoadingTimer){ clearTimeout(_ttsLoadingTimer); _ttsLoadingTimer=null; }
+  if(btn&&btn.dataset) delete btn.dataset.loading;
+}
 
 function _buildBrowserUtterance(text, btn){
   const utter=new SpeechSynthesisUtterance(text);
@@ -8594,6 +8630,58 @@ function _buildBrowserUtterance(text, btn){
 // default (which exists only because SpeechSynthesis truncates long texts):
 // fewer chunks = fewer boundaries where a gap could appear.
 const _EDGE_TTS_CHUNK_CHARS=1200;
+
+// Size of the FIRST chunk only. Time-to-first-audio is dominated by the
+// synthesis time of the chunk being spoken first, and that cost grows with the
+// text length (measured on this host against /api/tts: 120 chars → 3.1 s,
+// 400 → 6.7 s, 1200 → 16.6-33 s, 2400 → 37.6 s). With a 1200-char first chunk a
+// long message stayed silent for ~17 s before the first word, which reads as
+// "it waits for the whole message to be synthesized".
+const _EDGE_TTS_FIRST_CHUNK_CHARS=160;
+const _EDGE_TTS_CHUNK_GROWTH=1.5;
+
+// How many chunks may be synthesized ahead of the one being played. The server
+// is a ThreadingHTTPServer, so two synthesis requests really do run
+// concurrently; its own limiter (1 request / 2 s per client, HTTP 429) is what
+// spaces them, and the retry below turns a 429 into a short wait. Depth 2 puts
+// the pipeline a full chunk ahead of what playback needs, which absorbs a slow
+// Microsoft round trip instead of turning it into silence at a boundary.
+const _EDGE_TTS_PREFETCH_DEPTH=2;
+
+// Chunk plan for Edge playback: a SHORT head so playback starts fast, then a
+// geometric ramp up to the regular size. The ramp is what keeps it gapless:
+// a chunk can only be prefetched while the PREVIOUS one plays, so its synthesis
+// time must fit inside that playback. Measured on this host (French voice,
+// rate +20%): playback ≈ 0.05 s/char vs synthesis ≈ 0.006-0.028 s/char (+ ~3 s
+// fixed), so a 160-char head cannot hide the synthesis of a 1200-char follow-up
+// (33 s worst case) — it can only hide a ~1.5× bigger chunk. Hence
+// [160, 240, 360, 540, 810, 1200, 1200, …]: the growth ratio stays under the
+// playback/synthesis ratio, so no boundary introduces silence, while the first
+// word arrives in ~5 s instead of ~17 s.
+function _edgeTtsChunkPlan(){
+  const sizes=[];
+  let size=_EDGE_TTS_FIRST_CHUNK_CHARS;
+  while(size<_EDGE_TTS_CHUNK_CHARS){
+    sizes.push(Math.round(size));
+    size=size*_EDGE_TTS_CHUNK_GROWTH;
+  }
+  sizes.push(_EDGE_TTS_CHUNK_CHARS);
+  return sizes;
+}
+
+function _splitEdgeTtsChunks(text){
+  const sizes=_edgeTtsChunkPlan();
+  const chunks=[];
+  let rest=text;
+  const takeOne=function(max){
+    const part=_splitForTTS(rest, max)[0];
+    chunks.push(part);
+    rest=rest.slice(part.length).trim();
+  };
+  for(let i=0;i<sizes.length&&rest;i++) takeOne(sizes[i]);
+  while(rest) takeOne(_EDGE_TTS_CHUNK_CHARS);
+  return chunks.filter(Boolean);
+}
 
 // Play one chunk payload: a decoded AudioBuffer via Web Audio (preferred, exact
 // length known) or raw MP3 bytes via an <audio> blob when no AudioContext.
@@ -8649,7 +8737,8 @@ function _playTtsChunkPayload(payload, onended){
 function _playEdgeTtsChunked(text, btn){
   _ttsSpeaking=true;
   if(btn) btn.dataset.speaking='1';
-  const chunks=_splitForTTS(text, _EDGE_TTS_CHUNK_CHARS);
+  _ttsBtnLoadingStart(btn, 200);
+  const chunks=_splitEdgeTtsChunks(text);
   const voice=localStorage.getItem('hermes-tts-voice')||'zh-CN-XiaoxiaoNeural';
   const savedRate=parseFloat(localStorage.getItem('hermes-tts-rate'));
   const savedPitch=parseFloat(localStorage.getItem('hermes-tts-pitch'));
@@ -8663,6 +8752,7 @@ function _playEdgeTtsChunked(text, btn){
 
   const _fail=function(msg){
     stopped=true;_ttsSpeaking=false;_playingEdgeAudio=null;
+    _ttsBtnLoadingStop(btn);
     if(btn) btn.dataset.speaking='0';
     if(msg&&typeof showToast==='function') showToast(msg,4000,'error');
   };
@@ -8706,18 +8796,31 @@ function _playEdgeTtsChunked(text, btn){
     return p;
   };
 
+  // Request the next chunks NOW, so synthesis of a chunk runs during the
+  // playback of the one before it (idempotent: an in-flight chunk is reused).
+  const _pump=function(from, depth){
+    for(let i=from;i<chunks.length&&i<from+depth;i++) _request(i);
+  };
+
   const _playOne=function(idx){
     if(stopped||!_ttsSpeaking) return;
     if(idx>=chunks.length){
       _ttsSpeaking=false;_playingEdgeAudio=null;
+      _ttsBtnLoadingStop(btn);
       if(btn) btn.dataset.speaking='0';
       return;
     }
+    // Waiting for a chunk that is not ready yet (still synthesizing, or held
+    // back by the server's 2 s rate limit): show the ring again while we wait.
+    // Cancelled a moment later when the chunk is already in hand, so a
+    // prefetched chunk never flashes it.
+    _ttsBtnLoadingStart(btn, 300);
     Promise.resolve(_request(idx))
       .then(function(payload){
         if(stopped||!_ttsSpeaking) return;
-        // Prefetch the FOLLOW-UP chunk now, while this one plays.
-        if(idx+1<chunks.length) _request(idx+1);
+        _ttsBtnLoadingStop(btn);
+        // Prefetch the FOLLOW-UP chunks now, while this one plays.
+        _pump(idx+1, _EDGE_TTS_PREFETCH_DEPTH);
         return _playTtsChunkPayload(payload, function(){ _playOne(idx+1); });
       })
       .catch(function(e){
@@ -8741,6 +8844,10 @@ function speakMessage(btn){
   const clean=_stripForTTS(text);
   if(!clean) return;
 
+  // Any engine below synthesizes before the first sound: show the loading ring
+  // (the browser engine clears it immediately after speak()).
+  _ttsBtnLoadingStart(btn, 200);
+
   const engine=localStorage.getItem('hermes-tts-engine')||'browser';
   if(engine==='openai'){
     _playOpenaiTts(clean, btn);
@@ -8761,6 +8868,7 @@ function speakMessage(btn){
     _ttsSpeaking=true;
     const _failReg=function(msg){
       _ttsSpeaking=false;_playingEdgeAudio=null;
+      _ttsBtnLoadingStop(btn);
       if(btn)btn.dataset.speaking='0';
       if(msg&&typeof showToast==='function') showToast(msg,4000,'error');
     };
@@ -8776,6 +8884,7 @@ function speakMessage(btn){
   }
 
   if(!('speechSynthesis' in window)){
+    _ttsBtnLoadingStop(btn);
     showToast(t('tts_not_supported')||'Speech synthesis not supported in this browser.');
     return;
   }
@@ -8789,6 +8898,7 @@ function speakMessage(btn){
   const utter=_buildBrowserUtterance(_ttsChunkQueue[0], btn);
   _ttsCurrentUtterance=utter;
   speechSynthesis.speak(utter);
+  _ttsBtnLoadingStop(btn);
 }
 
 function _playElevenLabsTts(text, btn){
@@ -8796,6 +8906,7 @@ function _playElevenLabsTts(text, btn){
   _ttsSpeaking=true;
   const _fail=function(msg){
     _ttsSpeaking=false;_playingEdgeAudio=null;
+    _ttsBtnLoadingStop(btn);
     if(btn)btn.dataset.speaking='0';
     if(msg&&typeof showToast==='function') showToast(msg,4000,'error');
   };
@@ -8823,6 +8934,7 @@ function _playOpenaiTts(text, btn){
   _ttsSpeaking=true;
   const _fail=function(msg){
     _ttsSpeaking=false;_playingEdgeAudio=null;
+    _ttsBtnLoadingStop(btn);
     if(btn)btn.dataset.speaking='0';
     if(msg&&typeof showToast==='function') showToast(msg,4000,'error');
   };
@@ -8861,6 +8973,7 @@ function _playAudioBuf(arrayBuffer, btn, label){
   const ctx=_getTtsAudioCtx();
   if(!ctx){
     if(btn)btn.dataset.speaking='0';
+    _ttsBtnLoadingStop(btn);
     _ttsSpeaking=false;
     showToast(label+': Web Audio API not available');
     return;
@@ -8878,9 +8991,11 @@ function _playAudioBuf(arrayBuffer, btn, label){
         resolve();
       };
       src.onended=_cleanup;
+      _ttsBtnLoadingStop(btn);
       src.start(0);
     }, function(e){
       _ttsSpeaking=false;
+      _ttsBtnLoadingStop(btn);
       if(btn)btn.dataset.speaking='0';
       showToast(label+' error: '+(e&&e.message||e));
       resolve(); // prevent permanently pending Promise on decode failure
@@ -8907,8 +9022,12 @@ function stopTTS(){
   _ttsChunkQueue=[];
   _ttsChunkIndex=0;
   _ttsActiveBtn=null;
+  _ttsBtnLoadingStop(null);
   // Reset all speaking buttons
-  document.querySelectorAll('[data-speaking="1"]').forEach(btn=>{ btn.dataset.speaking='0'; });
+  document.querySelectorAll('[data-speaking="1"],[data-loading="1"]').forEach(btn=>{
+    btn.dataset.speaking='0';
+    delete btn.dataset.loading;
+  });
 }
 
 function autoReadLastAssistant(){
