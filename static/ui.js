@@ -6753,11 +6753,11 @@ function _deepseekPeakState(date){
   const nextAt=_deepseekNextWindowBoundary(d);
   return {peak:_deepseekIsPeakInstant(d),nextAt:nextAt===null?null:new Date(nextAt)};
 }
-function _deepseekTariffProviderSlug(provider){
-  return String(provider||'').trim().toLowerCase().replace(/^custom:/,'');
-}
 function _deepseekTariffRouteMatches(provider){
-  return _deepseekTariffProviderSlug(provider)==='deepseek';
+  // Comparaison stricte apres trim + minuscules. On ne retire PAS un eventuel
+  // prefixe `custom:` : un provider `custom:deepseek` est un proxy personnel
+  // (conditions de facturation differentes), pas la route directe de l'API DeepSeek.
+  return String(provider||'').trim().toLowerCase()==='deepseek';
 }
 // <<< deepseek-tariff-core
 
@@ -6775,8 +6775,8 @@ function _deepseekTariffApplies(){
   const routing=(session&&typeof _latestGatewayRoutingForSession==='function')
     ?_latestGatewayRoutingForSession(session)
     :null;
-  const used=routing?_deepseekTariffProviderSlug(routing.used_provider):'';
-  return !used||_deepseekTariffRouteMatches(used);
+  const usedRouting=routing?String(routing.used_provider||'').trim():'';
+  return !usedRouting||_deepseekTariffRouteMatches(usedRouting);
 }
 
 // Suffixe d'accessibilite de la pastille de contexte en heures pleines. Rempli par
