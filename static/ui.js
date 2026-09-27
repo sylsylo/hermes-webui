@@ -6682,6 +6682,74 @@ function _syncCtxIndicator(usage){
   });
 }
 
+// >>> deepseek-tariff-core (extrait verbatim par tests/test_deepseek_peak_tariff.py)
+// Heures pleines DeepSeek : 01:00-04:00 et 06:00-10:00 UTC, du lundi au vendredi,
+// hors jours feries chinois (https://api-docs.deepseek.com/quick_start/pricing :
+// « Off-peak rates are half of the peak rates. Peak hours are 01:00 - 04:00 and
+// 06:00 - 10:00 UTC, Monday through Friday, excluding Chinese public holidays.
+// All other hours are off-peak, including weekends and Chinese public holidays »).
+// Les tarifs hors pointe valent la MOITIE des tarifs pleins (heures pleines = x2).
+//
+// Pourquoi la date UTC suffit pour les feries : les fenetres pleines vont de
+// 01:00 a 10:00 UTC, soit 09:00-18:00 a Pekin — la date de Pekin y est toujours
+// egale a la date UTC, aucune bascule de date ne tombe dans une fenetre.
+const DEEPSEEK_PEAK_WINDOWS_UTC=[[1,4],[6,10]];
+// Jours feries chinois 2026 (avis du Conseil d'Etat du 2025-11-04, gov.cn) —
+// A RAFRAICHIR chaque annee (nouvel avis publie en novembre pour l'annee suivante) :
+// 1-3 janv., 15-23 fevr., 4-6 avr., 1-5 mai, 19-21 juin, 25-27 sept., 1-7 oct.
+const DEEPSEEK_CN_HOLIDAYS_UTC=new Set([
+  '2026-01-01','2026-01-02','2026-01-03',
+  '2026-02-15','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-21','2026-02-22','2026-02-23',
+  '2026-04-04','2026-04-05','2026-04-06',
+  '2026-05-01','2026-05-02','2026-05-03','2026-05-04','2026-05-05',
+  '2026-06-19','2026-06-20','2026-06-21',
+  '2026-09-25','2026-09-26','2026-09-27',
+  '2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07',
+]);
+function _deepseekUtcDateKey(date){
+  const d=date||new Date();
+  const month=String(d.getUTCMonth()+1).padStart(2,'0');
+  const day=String(d.getUTCDate()).padStart(2,'0');
+  return `${d.getUTCFullYear()}-${month}-${day}`;
+}
+function _deepseekIsPeakInstant(date){
+  const d=date||new Date();
+  const dow=d.getUTCDay();
+  if(dow===0||dow===6)return false;
+  if(DEEPSEEK_CN_HOLIDAYS_UTC.has(_deepseekUtcDateKey(d)))return false;
+  const hour=d.getUTCHours()+d.getUTCMinutes()/60;
+  return DEEPSEEK_PEAK_WINDOWS_UTC.some(w=>hour>=w[0]&&hour<w[1]);
+}
+function _deepseekNextWindowBoundary(date){
+  const d=date||new Date();
+  const nowMs=d.getTime();
+  for(let i=0;i<9;i++){
+    const base=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()+i);
+    const dow=new Date(base).getUTCDay();
+    if(dow===0||dow===6)continue;
+    if(DEEPSEEK_CN_HOLIDAYS_UTC.has(_deepseekUtcDateKey(new Date(base))))continue;
+    for(const w of DEEPSEEK_PEAK_WINDOWS_UTC){
+      const start=base+w[0]*3600000;
+      const end=base+w[1]*3600000;
+      if(start>nowMs)return start;
+      if(end>nowMs)return end;
+    }
+  }
+  return null;
+}
+function _deepseekPeakState(date){
+  const d=date||new Date();
+  const nextAt=_deepseekNextWindowBoundary(d);
+  return {peak:_deepseekIsPeakInstant(d),nextAt:nextAt===null?null:new Date(nextAt)};
+}
+function _deepseekTariffProviderSlug(provider){
+  return String(provider||'').trim().toLowerCase().replace(/^custom:/,'');
+}
+function _deepseekTariffRouteMatches(provider){
+  return _deepseekTariffProviderSlug(provider)==='deepseek';
+}
+// <<< deepseek-tariff-core
+
 // ── Touch support: toggle context tooltip on tap (#524) ──
 // Hover/focus still exposes the compact tooltip, but a click/tap now opens the
 // shared composer config menu used by the phone footer so the richer context
