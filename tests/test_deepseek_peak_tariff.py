@@ -74,6 +74,15 @@ def _core_source() -> str:
     return src[start:end]
 
 
+def _clock_source() -> str:
+    """Coeur + horloge locale (le texte des fenetres locales en depend)."""
+    src = _ui()
+    start = src.index("// Horloge locale de l")
+    end = src.index("function _syncDeepseekTariffRow(", start)
+    assert start < end, "bloc horloge introuvable dans ui.js"
+    return _core_source() + "\n" + src[start:end]
+
+
 def _run_node(script: str, env_extra: dict | None = None) -> subprocess.CompletedProcess:
     assert NODE is not None
     env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": "/tmp"}
@@ -136,6 +145,41 @@ if(bad.length){console.error(JSON.stringify(bad));process.exit(1);}
 console.log('OK');
 """
     proc = _run_node(harness)
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert proc.stdout.strip() == "OK"
+
+
+@pytest.mark.skipif(NODE is None, reason="node est requis pour executer le coeur tarifaire")
+@pytest.mark.parametrize("when,expected", [
+    # hiver (CET, UTC+1) et ete (CEST, UTC+2) : les bornes UTC sont fixes, l'heure
+    # locale affichee ne l'est pas. Reference = date du jour, pas une date figee.
+    ("2026-01-05T12:00:00Z", "02:00\u201305:00 & 07:00\u201311:00"),
+    ("2026-07-06T12:00:00Z", "03:00\u201306:00 & 08:00\u201312:00"),
+])
+def test_local_windows_follow_the_current_dst_offset(when, expected):
+    harness = _clock_source() + f"""
+global.document={{documentElement:{{lang:'fr-FR'}}}};
+console.log(_deepseekTariffLocalWindowsText(new Date('{when}')));
+"""
+    proc = _run_node(harness, {"TZ": "Europe/Paris"})
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+    assert proc.stdout.strip() == expected
+
+
+@pytest.mark.skipif(NODE is None, reason="node est requis pour executer le coeur tarifaire")
+def test_local_clock_follows_the_ui_language():
+    """Une interface francaise ne doit pas afficher « 03:00 AM » (horloge 12 h)."""
+    harness = _clock_source() + """
+global.document={documentElement:{lang:'fr-FR'}};
+const fr=_deepseekTariffLocalWindowsText(new Date('2026-07-06T12:00:00Z'));
+global.document={documentElement:{lang:'en-US'}};
+const en=_deepseekTariffLocalWindowsText(new Date('2026-07-06T12:00:00Z'));
+if(/AM|PM/.test(fr)){console.error('fr 12h: '+fr);process.exit(1);}
+if(!/03:00/.test(fr)){console.error('fr: '+fr);process.exit(1);}
+if(!/AM/.test(en)){console.error('en: '+en);process.exit(1);}
+console.log('OK');
+"""
+    proc = _run_node(harness, {"TZ": "Europe/Paris"})
     assert proc.returncode == 0, proc.stderr or proc.stdout
     assert proc.stdout.strip() == "OK"
 

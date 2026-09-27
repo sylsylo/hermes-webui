@@ -6785,14 +6785,30 @@ function _deepseekTariffApplies(){
 // script, bien avant le premier appel des deux fonctions).
 let _deepseekTariffAriaSuffix='';
 
-const DEEPSEEK_TARIFF_LOCAL_CLOCK=new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'});
-function _deepseekTariffLocalWindowsText(){
-  // Jour de reference fixe (lundi 2026-01-05) : on ne veut que l'heure locale des
-  // bornes UTC, pas la date.
-  const ref=Date.UTC(2026,0,5);
+// Horloge locale de l'affichage tarifaire : construite sur la langue de l'INTERFACE
+// (document.documentElement.lang, posé par i18n.js), pas sur celle du navigateur —
+// sinon un utilisateur en interface française voit « 03:00 AM » au milieu d'une
+// phrase française. Le formateur est reconstruit au changement de langue.
+let _deepseekTariffClockLang='';
+let _deepseekTariffClockFmt=null;
+function _deepseekTariffClock(){
+  const lang=String((typeof document!=='undefined'&&document.documentElement&&document.documentElement.lang)||'').trim();
+  if(!_deepseekTariffClockFmt||lang!==_deepseekTariffClockLang){
+    _deepseekTariffClockLang=lang;
+    _deepseekTariffClockFmt=new Intl.DateTimeFormat(lang||undefined,{hour:'2-digit',minute:'2-digit'});
+  }
+  return _deepseekTariffClockFmt;
+}
+function _deepseekTariffLocalWindowsText(now){
+  // Reference = la date DU JOUR : les bornes UTC sont fixes a l'annee, mais leur
+  // heure locale depend de l'offset en vigueur (heure d'ete/hiver). Une date figee
+  // afficherait l'horaire d'hiver toute l'annee.
+  const d=now||new Date();
+  const ref=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
+  const clock=_deepseekTariffClock();
   return DEEPSEEK_PEAK_WINDOWS_UTC.map(w=>{
-    const start=DEEPSEEK_TARIFF_LOCAL_CLOCK.format(new Date(ref+w[0]*3600000));
-    const end=DEEPSEEK_TARIFF_LOCAL_CLOCK.format(new Date(ref+w[1]*3600000));
+    const start=clock.format(new Date(ref+w[0]*3600000));
+    const end=clock.format(new Date(ref+w[1]*3600000));
     return `${start}\u2013${end}`;
   }).join(' & ');
 }
@@ -6809,13 +6825,14 @@ function _syncDeepseekTariffRow(now){
     _deepseekTariffAriaSuffix='';
     return;
   }
-  const st=_deepseekPeakState(now||new Date());
+  const when=now||new Date();
+  const st=_deepseekPeakState(when);
   const label=st.peak?t('deepseek_tariff_peak'):t('deepseek_tariff_offpeak');
-  const nextAt=st.nextAt?DEEPSEEK_TARIFF_LOCAL_CLOCK.format(st.nextAt):'';
+  const nextAt=st.nextAt?_deepseekTariffClock().format(st.nextAt):'';
   const nextText=nextAt
     ?(st.peak?t('deepseek_tariff_next_offpeak',nextAt):t('deepseek_tariff_next_peak',nextAt))
     :'';
-  const windowText=t('deepseek_tariff_window',_deepseekTariffLocalWindowsText());
+  const windowText=t('deepseek_tariff_window',_deepseekTariffLocalWindowsText(when));
   row.style.display='';
   row.classList.toggle('ctx-peak',st.peak);
   row.setAttribute('aria-label',[label,nextText,windowText].filter(Boolean).join(' \u00b7 '));
