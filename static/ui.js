@@ -8648,6 +8648,99 @@ const _EDGE_TTS_CHUNK_GROWTH=1.5;
 // Microsoft round trip instead of turning it into silence at a boundary.
 const _EDGE_TTS_PREFETCH_DEPTH=2;
 
+// Combien de synthèses réussies servent à recalculer l'estimation de durée.
+const _EDGE_TTS_SYNTH_SAMPLES=8;
+
+// Modèle de coût d'une synthèse, recalibré en direct sur les mesures réelles :
+// ms = fixe + par_caractère × nb_caractères. Valeurs de départ pessimistes (le
+// coût fixe est un aller-retour Microsoft, mesuré 0.6-3 s ; le coût par
+// caractère 4-25 ms selon le texte et le réseau).
+const _EDGE_TTS_SYNTH_FIXED_MS=2500;
+const _EDGE_TTS_SYNTH_MS_PER_CHAR=22;
+
+// Durée de lecture estimée quand le navigateur ne donne pas la durée exacte
+// (chemin <audio> de secours). Chemin Web Audio : la durée décodée est exacte,
+// on ne l'estime pas. Mesuré : playback ≈ 0.048 s/caractère à débit +20 %.
+const _EDGE_TTS_PLAYBACK_MS_PER_CHAR=48;
+
+// Le serveur n'accepte qu'UNE requête de synthèse toutes les 2 s (HTTP 429).
+// Lancer deux tronçons d'un coup ne gagne donc rien : la seconde est refusée et
+// le retry à délai fixe retombe sur la fenêtre, plusieurs fois de suite.
+const _EDGE_TTS_REQUEST_GAP_MS=2100;
+const _EDGE_TTS_RETRY_BASE_MS=1500;
+const _EDGE_TTS_RETRY_FACTOR=1.5;
+
+// Marge pour ne pas démarrer une lecture sur une frontière déjà perdue, et
+// attente maximale avant le premier mot d'un tronçon quand le suivant n'est pas
+// prêt : mieux vaut un peu d'attente au début que du silence au milieu d'une
+// phrase, mais pas d'attente interminable non plus.
+const _EDGE_TTS_SYNTH_SAFETY_MS=500;
+const _EDGE_TTS_MAX_HOLD_MS=2600;
+
+// En dessous de cette durée de lecture, un premier tronçon ne peut rien masquer
+// (le suivant ne peut même pas être demandé avant 2 s), on le fusionne avec le
+// suivant pour supprimer la frontière. Cas réel : « Oui. » suivi d'une longue
+// phrase sans point donnait un premier tronçon de 4 caractères (0.7 s).
+const _EDGE_TTS_MIN_HEAD_MS=1500;
+
+// Dernières durées de synthèse réellement mesurées, en couples entrée → ms.
+let _edgeTtsSynthSamples=[];
+
+// Modèle courant : moindres carrés sur les mesures récentes, borné, avec repli
+// sur les valeurs de départ tant qu'il n'y a pas assez de points.
+function _edgeTtsSynthModel(){
+  let fixed=_EDGE_TTS_SYNTH_FIXED_MS;
+  let perChar=_EDGE_TTS_SYNTH_MS_PER_CHAR;
+  const s=_edgeTtsSynthSamples;
+  if(s.length>=3){
+    let sx=0,sy=0,i;
+    for(i=0;i<s.length;i++){ sx+=s[i].chars; sy+=s[i].ms; }
+    const mx=sx/s.length, my=sy/s.length;
+    let num=0,den=0;
+    for(i=0;i<s.length;i++){ const dx=s[i].chars-mx; num+=dx*(s[i].ms-my); den+=dx*dx; }
+    if(den>0){
+      const slope=num/den;
+      const intercept=my-slope*mx;
+      if(isFinite(slope)&&isFinite(intercept)&&slope>0){
+        perChar=Math.min(60,Math.max(4,slope));
+        fixed=Math.min(6000,Math.max(200,intercept));
+      }
+    }
+  }
+  return {fixed:fixed, perChar:perChar};
+}
+
+function _edgeTtsSynthEstimateMs(chars){
+  const m=_edgeTtsSynthModel();
+  const n=(typeof chars==='number'&&chars>0)?chars:0;
+  return Math.round(m.fixed+m.perChar*n);
+}
+
+function _edgeTtsRecordSynthSample(chars, ms){
+  if(!(chars>0)||!(ms>0)) return;
+  _edgeTtsSynthSamples.push({chars:Math.round(chars), ms:Math.round(ms)});
+  while(_edgeTtsSynthSamples.length>_EDGE_TTS_SYNTH_SAMPLES) _edgeTtsSynthSamples.shift();
+}
+
+// Durée de lecture d'un tronçon : exacte si le tampon décodé est disponible
+// (chemin Web Audio), sinon estimée au nombre de caractères.
+function _edgeTtsPlaybackMs(payload, text){
+  if(payload&&typeof payload.duration==='number'&&payload.duration>0) return Math.round(payload.duration*1000);
+  return Math.round((text||'').length*_EDGE_TTS_PLAYBACK_MS_PER_CHAR);
+}
+
+// Combien de temps attendre avant de démarrer la lecture du tronçon courant.
+// On n'attend que si la synthèse restante du tronçon SUIVANT ne tient pas dans
+// la durée de lecture du courant — sans quoi la frontière produirait un blanc.
+// Renvoie 0 quand attendre ne sert à rien (suivant déjà prêt, ou marge suffisante).
+function _edgeTtsHoldMs(playMs, nextEstMs, elapsedMs, capMs){
+  const room=Math.max(0,(playMs||0)-_EDGE_TTS_SYNTH_SAFETY_MS);
+  const left=Math.max(0,(nextEstMs||0)-(elapsedMs||0));
+  if(left<=room) return 0;
+  const cap=(typeof capMs==='number'&&capMs>0)?capMs:_EDGE_TTS_MAX_HOLD_MS;
+  return Math.round(Math.min(left-room,cap));
+}
+
 // Chunk plan for Edge playback: a SHORT head so playback starts fast, then a
 // geometric ramp up to the regular size. The ramp is what keeps it gapless:
 // a chunk can only be prefetched while the PREVIOUS one plays, so its synthesis
@@ -8680,6 +8773,16 @@ function _splitEdgeTtsChunks(text){
   };
   for(let i=0;i<sizes.length&&rest;i++) takeOne(sizes[i]);
   while(rest) takeOne(_EDGE_TTS_CHUNK_CHARS);
+  // Tête pathologique : le découpage suit les fins de phrase, donc un message
+  // qui commence par une phrase très courte suivie d'une phrase sans point
+  // donne un premier tronçon de quelques caractères. Sa lecture est alors plus
+  // courte que la synthèse du suivant, qui ne peut même pas être demandée avant
+  // 2 s (limite du serveur) : la frontière produirait un blanc certain. On
+  // fusionne les deux pour supprimer la frontière au lieu de l'attendre.
+  if(chunks.length>1&&chunks[0].length*_EDGE_TTS_PLAYBACK_MS_PER_CHAR<_EDGE_TTS_MIN_HEAD_MS){
+    const merged=(chunks[0]+' '+chunks[1]).trim();
+    if(merged.length<=_EDGE_TTS_CHUNK_CHARS) chunks.splice(0,2,merged);
+  }
   return chunks.filter(Boolean);
 }
 
@@ -8748,6 +8851,9 @@ function _playEdgeTtsChunked(text, btn){
 
   const ctx=_getTtsAudioCtx();
   const inflight=new Map();
+  const ready=new Set();       // tronçons déjà synthétisés et décodés
+  const startedAt=new Map();   // début de la requête en cours, par tronçon
+  let nextSlotAt=0;            // prochain départ de requête autorisé (limite 2 s)
   let stopped=false;
 
   const _fail=function(msg){
@@ -8767,20 +8873,30 @@ function _playEdgeTtsChunked(text, btn){
   };
 
   // Request + decode one chunk. Idempotent: a chunk already in flight (started
-  // as a prefetch) is reused instead of being fetched twice. Retries on the
-  // server's TTS rate limit (1 request / 2 s per client, HTTP 429).
+  // as a prefetch) is reused instead of being fetched twice. The server accepts
+  // ONE synthesis request per 2 s (HTTP 429), so request START times are spread
+  // out by _EDGE_TTS_REQUEST_GAP_MS: firing two chunks at once only buys a
+  // rejection plus a retry that lands back inside the same window. A 429 backs
+  // off exponentially with jitter instead of retrying at a fixed delay.
   const _request=function(idx){
     if(inflight.has(idx)) return inflight.get(idx);
     const p=(async function(){
       const bodyStr=JSON.stringify({text:chunks[idx], voice:voice, rate:rate, pitch:pitch});
       for(let attempt=0;;attempt++){
+        const wait=Math.max(0,nextSlotAt-Date.now());
+        if(wait>0) await new Promise(function(res){ setTimeout(res,wait); });
+        if(stopped) throw new Error('stopped');
+        nextSlotAt=Date.now()+_EDGE_TTS_REQUEST_GAP_MS;
+        const t0=Date.now();
+        startedAt.set(idx,t0);
         const r=await fetch(new URL('api/tts', document.baseURI || location.href).href, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:bodyStr
         });
         if(r.status===429 && attempt<12){
-          await new Promise(function(res){ setTimeout(res,1500); });
+          const back=Math.round(_EDGE_TTS_RETRY_BASE_MS*Math.pow(_EDGE_TTS_RETRY_FACTOR,attempt)*(0.85+Math.random()*0.3));
+          await new Promise(function(res){ setTimeout(res,back); });
           if(stopped) throw new Error('stopped');
           continue;
         }
@@ -8788,7 +8904,13 @@ function _playEdgeTtsChunked(text, btn){
           const j=await r.json().catch(function(){return {};});
           throw new Error((j&&j.error)||('TTS request failed: '+r.status));
         }
-        return await _decode(await r.arrayBuffer());
+        const buf=await r.arrayBuffer();
+        // Durée réellement payée pour cette synthèse : elle recalibre l'attente
+        // décidée avant chaque frontière.
+        _edgeTtsRecordSynthSample(chunks[idx].length, Date.now()-t0);
+        const decoded=await _decode(buf);
+        ready.add(idx);
+        return decoded;
       }
     })();
     p.catch(function(){});  // an aborted prefetch must not surface as unhandled
@@ -8821,7 +8943,31 @@ function _playEdgeTtsChunked(text, btn){
         _ttsBtnLoadingStop(btn);
         // Prefetch the FOLLOW-UP chunks now, while this one plays.
         _pump(idx+1, _EDGE_TTS_PREFETCH_DEPTH);
-        return _playTtsChunkPayload(payload, function(){ _playOne(idx+1); });
+        const nextIdx=idx+1;
+        const _start=function(){
+          return _playTtsChunkPayload(payload, function(){ _playOne(nextIdx); });
+        };
+        // Advance available for the next synthesis: the playback duration of the
+        // chunk in hand (exact when the decoded buffer is there), against the
+        // ESTIMATED cost of synthesizing the next one, minus what that request
+        // has already spent.
+        if(nextIdx>=chunks.length||ready.has(nextIdx)) return _start();
+        const playMs=_edgeTtsPlaybackMs(payload, chunks[idx]);
+        const already=startedAt.has(nextIdx)?(Date.now()-startedAt.get(nextIdx)):0;
+        const hold=_edgeTtsHoldMs(playMs, _edgeTtsSynthEstimateMs(chunks[nextIdx].length), already, _EDGE_TTS_MAX_HOLD_MS);
+        if(hold<=0) return _start();
+        // The next chunk cannot be ready in time: wait a little BEFORE speaking
+        // instead of leaving a hole in the middle of the reading. The ring stays
+        // visible during that wait and clears as soon as the chunk lands.
+        _ttsBtnLoadingStart(btn, 0);
+        return Promise.race([
+          Promise.resolve(_request(nextIdx)).catch(function(){ return null; }),
+          new Promise(function(res){ setTimeout(res,hold); })
+        ]).then(function(){
+          if(stopped||!_ttsSpeaking) return;
+          _ttsBtnLoadingStop(btn);
+          return _start();
+        });
       })
       .catch(function(e){
         if(!stopped) _fail('Edge TTS failed: '+(e&&e.message||e));
