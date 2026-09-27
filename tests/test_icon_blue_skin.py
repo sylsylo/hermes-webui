@@ -159,6 +159,37 @@ def test_icon_blue_primary_buttons_carry_the_emblem_gradient_in_dark_only():
     assert "color:#FFFFFF" in send
 
 
+def test_icon_blue_stop_state_is_red_not_send_blue():
+    """The square stop button must read red, in both modes.
+
+    The skin's `:root[data-skin] … .send-btn` rules outrank the base
+    `.send-btn.stop` (specificity 0,4,0/0,3,0 vs 0,2,0), so before this rule the
+    stop state inherited the very same blue as Send and only the glyph told them
+    apart. The red is the skin's own crimson family, not the alert red.
+    """
+    light = dict(_light_scope_rules())
+    light_stop = light[
+        ':root[data-skin="icon-blue"]:not(.dark) .send-btn.stop, '
+        ':root[data-skin="icon-blue"]:not(.dark) .send-btn.interrupt'
+    ]
+    assert "background:#C1333F" in light_stop
+    assert "background-image:none" in light_stop  # no accent gradient left
+    assert "color:#FFFFFF" in light_stop
+    dark_start = CSS.index(':root.dark[data-skin="icon-blue"] .send-btn.stop,')
+    dark_stop = CSS[dark_start : CSS.index("}", dark_start)]
+    assert "background:#E5484D" in dark_stop
+    assert "background-image:none" in dark_stop
+    assert "color:#FFFFFF" in dark_stop
+    # Legibility: white ink stays AA on the light red, and the dark red clears the
+    # 3:1 non-text threshold on the navy page.
+    assert _contrast("#FFFFFF", "#C1333F") >= 4.5
+    assert _contrast("#FFFFFF", "#E5484D") >= 3
+    assert _contrast("#E5484D", "#04162E") >= 3
+    # …and it must not blur into the Send button of the same mode.
+    assert _contrast("#C1333F", "#0284C7") >= 1.2
+    assert _contrast("#E5484D", "#20BAF7") >= 1.2
+
+
 def test_icon_blue_light_rules_never_leak_dark_navy_or_cyan():
     # Several shared skin rules (button gradient, tool cards, scrollbar, badges,
     # lightbox, ::selection) used to be unscoped and painted the dark cyan/navy
