@@ -5597,6 +5597,9 @@ function openMobileComposerConfig(){
   if(typeof closeToolsetsDropdown==='function') closeToolsetsDropdown();
   panel.classList.add('open');
   _syncMobileComposerConfigButton(true);
+  // L'etat tarifaire est date : le recalculer au moment de l'ouverture evite
+  // d'afficher « heures creuses » juste apres une bascule (tick de 30 s plus bas).
+  if(typeof _syncDeepseekTariffRow==='function')_syncDeepseekTariffRow();
 }
 
 function toggleMobileComposerConfig(){
@@ -6566,6 +6569,10 @@ function _syncCtxIndicator(usage){
   const wrap=$('ctxIndicatorWrap');
   const el=$('ctxIndicator');
   if(!el)return;
+  // La session (donc la route) peut changer : l'etat tarifaire DeepSeek suit le
+  // meme chemin de mise a jour que le compteur de contexte, y compris sur les
+  // sorties anticipees ci-dessous (sinon une ligne etrangere resterait affichee).
+  if(typeof _syncDeepseekTariffRow==='function')_syncDeepseekTariffRow();
   const ctxHidden=!!(window._composerControlVisibility&&window._composerControlVisibility.hide_composer_context);
   if(ctxHidden){
     if(wrap) wrap.style.display='none';
@@ -6636,6 +6643,10 @@ function _syncCtxIndicator(usage){
   if(!hasExplicitCtx&&hasPromptTok) label+=' (est. 128K)';
   if(cost) label+=` \u00b7 $${cost<0.01?cost.toFixed(4):cost.toFixed(2)}`;
   if(cacheText) label+=` \u00b7 ${cacheText}`;
+  // Heures pleines DeepSeek : signaler le surcout potentiel sur la pastille de
+  // contexte elle-meme, meme infobulle fermee (suffixe rempli par
+  // _syncDeepseekTariffRow, vide hors heures pleines ou hors route DeepSeek).
+  if(_deepseekTariffAriaSuffix) label+=` \u00b7 ${_deepseekTariffAriaSuffix}`;
   el.setAttribute('aria-label',label);
   const usageText=hasPromptTok?(overflowed?`${contextLabel}: ${rawPct}% used (context exceeded)`:`${contextLabel}: ${pct}% used (${100-pct}% left)`):`${_fmtTokens(totalTok)} tokens used`;
   const tokensText=hasPromptTok?`${contextLabel}: ${_fmtTokens(contextPromptTok)} / ${_fmtTokens(ctxWindow)} tokens used`:`In: ${_fmtTokens(usage.input_tokens||0)} \u00b7 Out: ${_fmtTokens(usage.output_tokens||0)}`;
@@ -6750,6 +6761,90 @@ function _deepseekTariffRouteMatches(provider){
 }
 // <<< deepseek-tariff-core
 
+// La ligne n'a de sens que si la session est reellement servie par l'API DeepSeek
+// en direct. OpenRouter revend des modeles DeepSeek a sa propre grille (aucun
+// tarif heures creuses), et un provider `custom:`/`@…` a ses propres conditions.
+function _deepseekTariffApplies(){
+  const session=(typeof S!=='undefined'&&S&&S.session)?S.session:null;
+  const provider=(session&&session.model_provider)
+    ||(typeof window!=='undefined'&&window._activeProvider)
+    ||'';
+  if(!_deepseekTariffRouteMatches(provider))return false;
+  // Garde de failover : si la passerelle a servi ce tour ailleurs, le tarif
+  // DeepSeek ne s'applique pas a l'appel reellement facture.
+  const routing=(session&&typeof _latestGatewayRoutingForSession==='function')
+    ?_latestGatewayRoutingForSession(session)
+    :null;
+  const used=routing?_deepseekTariffProviderSlug(routing.used_provider):'';
+  return !used||_deepseekTariffRouteMatches(used);
+}
+
+// Suffixe d'accessibilite de la pastille de contexte en heures pleines. Rempli par
+// _syncDeepseekTariffRow() et consomme par _syncCtxIndicator() (declare ici, mais
+// lu seulement a l'execution : la declaration est initialisee au chargement du
+// script, bien avant le premier appel des deux fonctions).
+let _deepseekTariffAriaSuffix='';
+
+const DEEPSEEK_TARIFF_LOCAL_CLOCK=new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'});
+function _deepseekTariffLocalWindowsText(){
+  // Jour de reference fixe (lundi 2026-01-05) : on ne veut que l'heure locale des
+  // bornes UTC, pas la date.
+  const ref=Date.UTC(2026,0,5);
+  return DEEPSEEK_PEAK_WINDOWS_UTC.map(w=>{
+    const start=DEEPSEEK_TARIFF_LOCAL_CLOCK.format(new Date(ref+w[0]*3600000));
+    const end=DEEPSEEK_TARIFF_LOCAL_CLOCK.format(new Date(ref+w[1]*3600000));
+    return `${start}\u2013${end}`;
+  }).join(' & ');
+}
+function _syncDeepseekTariffRow(now){
+  const row=$('composerTariffRow');
+  if(!row)return;
+  const indicator=$('ctxIndicator');
+  const tooltipLine=$('ctxTooltipDeepseek');
+  const hidden=!!(window._composerControlVisibility&&window._composerControlVisibility.hide_composer_context);
+  if(hidden||!_deepseekTariffApplies()){
+    row.style.display='none';
+    if(tooltipLine)tooltipLine.style.display='none';
+    if(indicator)indicator.classList.remove('ctx-peak');
+    _deepseekTariffAriaSuffix='';
+    return;
+  }
+  const st=_deepseekPeakState(now||new Date());
+  const label=st.peak?t('deepseek_tariff_peak'):t('deepseek_tariff_offpeak');
+  const nextAt=st.nextAt?DEEPSEEK_TARIFF_LOCAL_CLOCK.format(st.nextAt):'';
+  const nextText=nextAt
+    ?(st.peak?t('deepseek_tariff_next_offpeak',nextAt):t('deepseek_tariff_next_peak',nextAt))
+    :'';
+  const windowText=t('deepseek_tariff_window',_deepseekTariffLocalWindowsText());
+  row.style.display='';
+  row.classList.toggle('ctx-peak',st.peak);
+  row.setAttribute('aria-label',[label,nextText,windowText].filter(Boolean).join(' \u00b7 '));
+  const labelEl=$('composerTariffLabel');
+  if(labelEl){
+    labelEl.textContent=label;
+    labelEl.className='composer-mobile-config-value composer-tariff-pill '
+      +(st.peak?'composer-tariff-pill--peak':'composer-tariff-pill--offpeak');
+  }
+  const nextEl=$('composerTariffNext');
+  if(nextEl)nextEl.textContent=nextText;
+  const windowEl=$('composerTariffWindow');
+  if(windowEl)windowEl.textContent=windowText;
+  const caveatEl=$('composerTariffCaveat');
+  if(caveatEl){
+    if(st.peak){caveatEl.style.display='';caveatEl.textContent=t('deepseek_tariff_cost_caveat');}
+    else{caveatEl.style.display='none';caveatEl.textContent='';}
+  }
+  if(tooltipLine){
+    tooltipLine.style.display='';
+    tooltipLine.textContent=[label,nextText].filter(Boolean).join(' \u00b7 ');
+  }
+  // Indice discret sur la pastille de contexte : un point ambre en heures pleines,
+  // pour prevenir du surcout sans ouvrir le panneau. L'infobulle (au survol) et la
+  // ligne du panneau restent les surfaces detaillees ; ici on ne fait que signaler.
+  if(indicator)indicator.classList.toggle('ctx-peak',st.peak);
+  _deepseekTariffAriaSuffix=st.peak?[label,nextText].filter(Boolean).join(' \u00b7 '):'';
+}
+
 // ── Touch support: toggle context tooltip on tap (#524) ──
 // Hover/focus still exposes the compact tooltip, but a click/tap now opens the
 // shared composer config menu used by the phone footer so the richer context
@@ -6761,6 +6856,15 @@ document.addEventListener('DOMContentLoaded',function(){
   const btn=document.getElementById('ctxIndicator');
   if(!btn)return;
   btn.addEventListener('click',openComposerContextMenu);
+  // Rafraichit l'etat tarifaire DeepSeek toutes les 30 s : l'affichage ne montre que
+  // des heures d'horloge, il suffit donc d'etre a moins d'une minute de la bascule.
+  // Un seul timer pour la page (garde sur le global) : jamais duplique au re-render.
+  if(!window._deepseekTariffTimer){
+    window._deepseekTariffTimer=setInterval(()=>{
+      if(typeof _syncDeepseekTariffRow==='function')_syncDeepseekTariffRow();
+    },30000);
+  }
+  if(typeof _syncDeepseekTariffRow==='function')_syncDeepseekTariffRow();
   // Close on outside tap
   document.addEventListener('click',function(){
     tooltip.classList.remove('ctx-tooltip-active');
