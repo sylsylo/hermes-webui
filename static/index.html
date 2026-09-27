@@ -715,6 +715,7 @@
                 <div class="ctx-tooltip-line" id="ctxTooltipTokens"></div>
                 <div class="ctx-tooltip-line" id="ctxTooltipThreshold"></div>
                 <div class="ctx-tooltip-line" id="ctxTooltipCost" style="display:none"></div>
+                <div class="ctx-tooltip-line ctx-tooltip-line--deepseek" id="ctxTooltipDeepseek" style="display:none"></div>
                 <div class="ctx-tooltip-compress" id="ctxTooltipCompress" style="display:none">
                   <button class="ctx-compress-btn" id="ctxCompressBtn" type="button"></button>
                 </div>
@@ -751,6 +752,16 @@
                 <span class="composer-mobile-context-detail" id="composerMobileContextCost" style="display:none"></span>
               </span>
               <button class="ctx-compress-btn composer-mobile-context-compress" id="composerMobileCtxCompressBtn" type="button" style="display:none"></button>
+            </div>
+            <div class="composer-mobile-config-action composer-mobile-tariff-action" id="composerTariffRow" role="group" aria-label="DeepSeek tariff" style="display:none">
+              <span class="composer-tariff-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+              <span class="composer-mobile-config-copy composer-mobile-tariff-copy">
+                <span class="composer-mobile-config-kicker">DeepSeek</span>
+                <span class="composer-mobile-config-value composer-tariff-pill" id="composerTariffLabel"></span>
+                <span class="composer-mobile-context-detail" id="composerTariffNext"></span>
+                <span class="composer-mobile-context-detail" id="composerTariffWindow"></span>
+                <span class="composer-mobile-context-detail composer-tariff-caveat" id="composerTariffCaveat" style="display:none"></span>
+              </span>
             </div>
           </div>
           <div class="ws-dropdown ws-dropdown-footer" id="composerWsDropdown" hidden aria-hidden="true" inert></div>
