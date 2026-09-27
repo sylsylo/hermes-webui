@@ -5,6 +5,12 @@
 
 const LOCALES = {
   en: {
+    deepseek_tariff_offpeak: 'Off-peak rate (×1)',
+    deepseek_tariff_peak: 'Peak rate (×2)',
+    deepseek_tariff_next_offpeak: 'Off-peak from {0}',
+    deepseek_tariff_next_peak: 'Peak from {0}',
+    deepseek_tariff_window: 'Peak windows: {0} local · 01:00–04:00 and 06:00–10:00 UTC, Mon–Fri, excl. Chinese holidays',
+    deepseek_tariff_cost_caveat: 'Cost estimate uses off-peak rates: the real bill is up to ×2 during peak hours.',
     offline_title: 'Connection lost',
     offline_browser_detail: 'Your browser reports that this device is offline.',
     offline_network_detail: 'Hermes is unreachable from this browser right now.',
@@ -1765,6 +1771,12 @@ const LOCALES = {
   },
 
   it: {
+    deepseek_tariff_offpeak: 'Tariffa off-peak (×1)',
+    deepseek_tariff_peak: 'Tariffa peak (×2)',
+    deepseek_tariff_next_offpeak: 'Off-peak dalle {0}',
+    deepseek_tariff_next_peak: 'Peak dalle {0}',
+    deepseek_tariff_window: 'Finestre peak: {0} locale · 01:00–04:00 e 06:00–10:00 UTC, lun–ven, escluse le festività cinesi',
+    deepseek_tariff_cost_caveat: 'Costi stimati con tariffe off-peak: in fascia peak la fattura reale può essere fino a ×2.',
     offline_title: 'Connessione persa',
     offline_browser_detail: 'Il browser segnala che questo dispositivo è offline.',
     offline_network_detail: 'Hermes non è raggiungibile da questo browser al momento.',
@@ -3503,6 +3515,12 @@ const LOCALES = {
   },
 
   ja: {
+    deepseek_tariff_offpeak: 'オフピーク料金（×1）',
+    deepseek_tariff_peak: 'ピーク料金（×2）',
+    deepseek_tariff_next_offpeak: 'オフピーク開始 {0}',
+    deepseek_tariff_next_peak: 'ピーク開始 {0}',
+    deepseek_tariff_window: 'ピーク時間帯: 現地 {0} · UTC 01:00–04:00 / 06:00–10:00、月〜金、中国の祝日を除く',
+    deepseek_tariff_cost_caveat: '表示コストはオフピーク料金で見積もり。ピーク時間帯は最大2倍になります。',
     offline_title: '接続が切断されました',
     offline_browser_detail: 'ブラウザはこのデバイスがオフラインだと報告しています。',
     offline_network_detail: '現在、このブラウザからHermesに到達できません。',
@@ -5246,6 +5264,12 @@ const LOCALES = {
   },
 
   ru: {
+    deepseek_tariff_offpeak: 'Тариф вне пика (×1)',
+    deepseek_tariff_peak: 'Тариф пик (×2)',
+    deepseek_tariff_next_offpeak: 'Вне пика с {0}',
+    deepseek_tariff_next_peak: 'Пик с {0}',
+    deepseek_tariff_window: 'Пиковые окна: {0} по местному · 01:00–04:00 и 06:00–10:00 UTC, пн–пт, кроме китайских праздников',
+    deepseek_tariff_cost_caveat: 'Стоимость оценена по тарифам вне пика: в пик счёт может быть до 2× выше.',
     offline_title: 'Соединение потеряно',
     offline_browser_detail: 'Браузер сообщает, что это устройство офлайн.',
     offline_network_detail: 'Hermes сейчас недоступен из этого браузера.',
@@ -6963,6 +6987,12 @@ const LOCALES = {
   },
 
   es: {
+    deepseek_tariff_offpeak: 'Tarifa valle (×1)',
+    deepseek_tariff_peak: 'Tarifa punta (×2)',
+    deepseek_tariff_next_offpeak: 'Valle desde las {0}',
+    deepseek_tariff_next_peak: 'Punta desde las {0}',
+    deepseek_tariff_window: 'Franjas punta: {0} local · 01:00–04:00 y 06:00–10:00 UTC, lun–vie, sin festivos chinos',
+    deepseek_tariff_cost_caveat: 'El coste se estima con tarifas valle: en horas punta la factura real puede ser hasta 2× mayor.',
     offline_title: 'Conexión perdida',
     offline_browser_detail: 'Tu navegador indica que este dispositivo está sin conexión.',
     offline_network_detail: 'Hermes no está disponible desde este navegador ahora mismo.',
@@ -8647,6 +8677,12 @@ const LOCALES = {
   },
 
   de: {
+    deepseek_tariff_offpeak: 'Off-Peak-Tarif (×1)',
+    deepseek_tariff_peak: 'Peak-Tarif (×2)',
+    deepseek_tariff_next_offpeak: 'Off-Peak ab {0}',
+    deepseek_tariff_next_peak: 'Peak ab {0}',
+    deepseek_tariff_window: 'Peak-Fenster: {0} lokal · 01:00–04:00 und 06:00–10:00 UTC, Mo–Fr, ohne chinesische Feiertage',
+    deepseek_tariff_cost_caveat: 'Kosten sind mit Off-Peak-Tarifen geschätzt: in Peak-Zeiten bis zu 2× höher.',
     offline_title: 'Verbindung verloren',
     offline_browser_detail: 'Dein Browser meldet, dass dieses Gerät offline ist.',
     offline_network_detail: 'Hermes ist von diesem Browser aus gerade nicht erreichbar.',
@@ -10325,6 +10361,12 @@ const LOCALES = {
   },
 
   zh: {
+    deepseek_tariff_offpeak: '低峰价（×1）',
+    deepseek_tariff_peak: '高峰价（×2）',
+    deepseek_tariff_next_offpeak: '低峰时段从 {0} 起',
+    deepseek_tariff_next_peak: '高峰时段从 {0} 起',
+    deepseek_tariff_window: '高峰时段：本地 {0} · UTC 01:00–04:00 与 06:00–10:00，周一至周五，中国法定节假日除外',
+    deepseek_tariff_cost_caveat: '费用按低峰价估算：高峰时段实际账单最高可达 2 倍。',
     offline_title: '连接已断开',
     offline_browser_detail: '浏览器报告此设备当前离线。',
     offline_network_detail: '此浏览器当前无法连接到 Hermes。',
@@ -11997,6 +12039,12 @@ const LOCALES = {
 
   // Traditional Chinese (zh-Hant)
   'zh-Hant': {
+    deepseek_tariff_offpeak: '離峰價（×1）',
+    deepseek_tariff_peak: '尖峰價（×2）',
+    deepseek_tariff_next_offpeak: '離峰時段自 {0} 起',
+    deepseek_tariff_next_peak: '尖峰時段自 {0} 起',
+    deepseek_tariff_window: '尖峰時段：本地 {0} · UTC 01:00–04:00 與 06:00–10:00，週一至週五，中國國定假日除外',
+    deepseek_tariff_cost_caveat: '費用依離峰價估算：尖峰時段實際帳單最高可達 2 倍。',
 
     offline_title: '連線中斷',
     offline_browser_detail: '瀏覽器回報此裝置目前離線。',
@@ -13738,6 +13786,12 @@ const LOCALES = {
   },
 
   pt: {
+    deepseek_tariff_offpeak: 'Tarifa fora de pico (×1)',
+    deepseek_tariff_peak: 'Tarifa de pico (×2)',
+    deepseek_tariff_next_offpeak: 'Fora de pico a partir de {0}',
+    deepseek_tariff_next_peak: 'Pico a partir de {0}',
+    deepseek_tariff_window: 'Janelas de pico: {0} local · 01:00–04:00 e 06:00–10:00 UTC, seg–sex, exceto feriados chineses',
+    deepseek_tariff_cost_caveat: 'Custos estimados com tarifas fora de pico: em hora de pico a fatura real pode ser até 2× maior.',
     offline_title: 'Conexão perdida',
     offline_browser_detail: 'O navegador informa que este dispositivo está offline.',
     offline_network_detail: 'O Hermes está inacessível neste navegador agora.',
@@ -15296,6 +15350,12 @@ const LOCALES = {
     wiki_not_configured: 'Wiki not configured',
   },
   ko: {
+    deepseek_tariff_offpeak: '비피크 요금 (×1)',
+    deepseek_tariff_peak: '피크 요금 (×2)',
+    deepseek_tariff_next_offpeak: '비피크 시작 {0}',
+    deepseek_tariff_next_peak: '피크 시작 {0}',
+    deepseek_tariff_window: '피크 시간대: 현지 {0} · UTC 01:00–04:00 및 06:00–10:00, 월–금, 중국 공휴일 제외',
+    deepseek_tariff_cost_caveat: '비용은 비피크 요금으로 추정됩니다. 피크 시간대에는 실제 청구액이 최대 2배가 될 수 있습니다.',
     offline_title: '연결이 끊겼습니다',
     offline_browser_detail: '브라우저가 이 장치가 오프라인이라고 보고합니다.',
     offline_network_detail: '현재 이 브라우저에서 Hermes에 연결할 수 없습니다.',
@@ -17024,6 +17084,12 @@ const LOCALES = {
   },
 
   fr: {
+    deepseek_tariff_offpeak: 'Heures creuses (×1)',
+    deepseek_tariff_peak: 'Heures pleines (×2)',
+    deepseek_tariff_next_offpeak: 'Heures creuses à partir de {0}',
+    deepseek_tariff_next_peak: 'Heures pleines à partir de {0}',
+    deepseek_tariff_window: 'Fenêtres pleines : {0} (local) · 01:00–04:00 et 06:00–10:00 UTC, lun–ven, hors fériés chinois',
+    deepseek_tariff_cost_caveat: 'Coûts estimés aux tarifs heures creuses : la facture réelle est jusqu\'à ×2 en heures pleines.',
     offline_title: 'Connexion perdue',
     offline_browser_detail: 'Votre navigateur signale que cet appareil est hors ligne.',
     offline_network_detail: 'Hermes est actuellement inaccessible depuis ce navigateur.',
@@ -18740,6 +18806,12 @@ const LOCALES = {
   },
 
   cs: {
+    deepseek_tariff_offpeak: 'Tarif mimo špičku (×1)',
+    deepseek_tariff_peak: 'Tarif ve špičce (×2)',
+    deepseek_tariff_next_offpeak: 'Mimo špičku od {0}',
+    deepseek_tariff_next_peak: 'Špička od {0}',
+    deepseek_tariff_window: 'Okna špičky: {0} místního času · 01:00–04:00 a 06:00–10:00 UTC, po–pá, bez čínských svátků',
+    deepseek_tariff_cost_caveat: 'Náklady jsou odhadnuty podle tarifů mimo špičku: ve špičce může být účet až 2× vyšší.',
     _label: 'Čeština',
     _lang: 'cs',
     _speech: 'cs-CZ',
@@ -20437,6 +20509,12 @@ const LOCALES = {
     tool_summary_join: _i18nToolSummaryJoinCs,
   },
   tr: {
+    deepseek_tariff_offpeak: 'Yoğun olmayan tarife (×1)',
+    deepseek_tariff_peak: 'Yoğun tarife (×2)',
+    deepseek_tariff_next_offpeak: 'Yoğun olmayan saatler {0}',
+    deepseek_tariff_next_peak: 'Yoğun saatler {0}',
+    deepseek_tariff_window: 'Yoğun saat pencereleri: yerel {0} · UTC 01:00–04:00 ve 06:00–10:00, Pzt–Cum, Çin tatilleri hariç',
+    deepseek_tariff_cost_caveat: 'Maliyetler yoğun olmayan tarifelerle tahmin edilir: yoğun saatlerde gerçek fatura 2× olabilir.',
 
 
 
@@ -22170,6 +22248,12 @@ const LOCALES = {
   
   },
   pl: {
+    deepseek_tariff_offpeak: 'Taryfa poza szczytem (×1)',
+    deepseek_tariff_peak: 'Taryfa szczytowa (×2)',
+    deepseek_tariff_next_offpeak: 'Poza szczytem od {0}',
+    deepseek_tariff_next_peak: 'Szczyt od {0}',
+    deepseek_tariff_window: 'Okna szczytu: {0} czasu lokalnego · 01:00–04:00 i 06:00–10:00 UTC, pon–pt, bez chińskich świąt',
+    deepseek_tariff_cost_caveat: 'Koszty szacowane według taryf poza szczytem: w szczycie rachunek może być do 2× wyższy.',
     offline_title: 'Połączenie utracone',
     offline_browser_detail: 'Twoja przeglądarka zgłasza, że to urządzenie jest offline.',
     offline_network_detail: 'Hermes jest obecnie nieosiągalny z tej przeglądarki.',
@@ -23903,6 +23987,12 @@ const LOCALES = {
     checkpoint_diff_files_changed: (n) => n === 1 ? '1 plik zmieniony' : `${n} zmienionych plików`,
   },
   vi: {
+    deepseek_tariff_offpeak: 'Giá ngoài giờ cao điểm (×1)',
+    deepseek_tariff_peak: 'Giá giờ cao điểm (×2)',
+    deepseek_tariff_next_offpeak: 'Ngoài cao điểm từ {0}',
+    deepseek_tariff_next_peak: 'Cao điểm từ {0}',
+    deepseek_tariff_window: 'Khung giờ cao điểm: {0} giờ địa phương · 01:00–04:00 và 06:00–10:00 UTC, thứ 2–thứ 6, trừ ngày lễ Trung Quốc',
+    deepseek_tariff_cost_caveat: 'Chi phí ước tính theo giá ngoài cao điểm: vào giờ cao điểm hóa đơn thực tế có thể cao gấp 2 lần.',
     offline_title: 'Mất kết nối',
     offline_browser_detail: 'Trình duyệt báo rằng thiết bị này đang ngoại tuyến.',
     offline_network_detail: 'Không thể kết nối tới Hermes từ trình duyệt lúc này.',
