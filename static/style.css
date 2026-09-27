@@ -2917,7 +2917,7 @@
      icon + value gives a cleaner two-row layout per pill. The .context row
      keeps its kicker because it stretches to 100% width and has more value
      content (usage / tokens / threshold). See #1381 review feedback. */
-  .composer-mobile-config-action:not(.composer-mobile-context-action) .composer-mobile-config-kicker{display:none;}
+  .composer-mobile-config-action:not(.composer-mobile-context-action):not(.composer-mobile-tariff-action) .composer-mobile-config-kicker{display:none;}
   .composer-mobile-config-kicker{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
   .composer-mobile-config-value{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .composer-mobile-context-action{flex:1 0 100%;align-items:flex-start;cursor:default;overflow:visible;}
@@ -2927,12 +2927,27 @@
   .composer-mobile-context-action.ctx-mid .composer-mobile-config-value{color:var(--warning);}
   .composer-mobile-context-action.ctx-high .composer-mobile-config-value{color:var(--error);}
   .composer-mobile-context-action.ctx-high .composer-mobile-context-compress{border-color:var(--error);color:var(--error);}
+  /* Ligne « tarif DeepSeek » (heures creuses / pleines) — informative, non cliquable.
+     Même gabarit que la ligne contexte : pleine largeur, détails sur plusieurs lignes. */
+  .composer-mobile-tariff-action{flex:1 0 100%;align-items:flex-start;cursor:default;overflow:visible;}
+  .composer-mobile-tariff-copy{flex:1 1 auto;gap:3px;}
+  .composer-tariff-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;color:var(--muted);}
+  .composer-tariff-pill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;width:auto;padding:2px 9px;border-radius:999px;border:1px solid transparent;font-size:11px;font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;}
+  .composer-tariff-pill::before{content:'';width:6px;height:6px;border-radius:999px;background:currentColor;flex:0 0 auto;}
+  .composer-tariff-pill--offpeak{color:var(--success);background:rgba(61,139,64,.12);border-color:rgba(61,139,64,.38);}
+  .composer-tariff-pill--peak{color:var(--warning);background:rgba(230,138,0,.14);border-color:rgba(230,138,0,.40);}
+  .composer-tariff-caveat{color:var(--warning);}
+  .ctx-tooltip-line--deepseek{color:var(--warning);}
   .composer-right{display:flex;gap:8px;align-items:center;flex-shrink:0;}
   .composer-status{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;}
   /* Context usage indicator */
   .ctx-indicator-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .ctx-indicator{width:34px;height:34px;padding:0;border:none;background:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,transform .15s;}
+  .ctx-indicator{position:relative;width:34px;height:34px;padding:0;border:none;background:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s,transform .15s;}
   .ctx-indicator:hover{opacity:.88;transform:translateY(-1px);}
+  /* Heures pleines DeepSeek : point ambre discret sur la pastille de contexte
+     (posé par ui.js → _syncDeepseekTariffRow) — prévenir du surcoût tarifaire sans
+     avoir à ouvrir le panneau. Masqué dès qu'on repasse en heures creuses. */
+  .ctx-indicator.ctx-peak::after{content:'';position:absolute;top:1px;right:1px;width:7px;height:7px;border-radius:999px;background:var(--warning);box-shadow:0 0 0 2px var(--surface);}
   .ctx-ring{position:relative;display:flex;width:24px;height:24px;align-items:center;justify-content:center;}
   .ctx-ring-svg{position:absolute;inset:0;width:24px;height:24px;transform:rotate(-90deg);}
   .ctx-ring-track,.ctx-ring-value{fill:none;stroke-width:3;}
