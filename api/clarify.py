@@ -36,6 +36,17 @@ class _ClarifyEntry:
         self.result: Optional[str] = None
         self.clarify_id: str = data.get("clarify_id", "") or uuid.uuid4().hex[:12]
 
+    @property
+    def paused(self) -> bool:
+        """True when the user cancelled this prompt's auto-timeout.
+
+        ``data`` is the single owner of that state: it is also what ``get_pending``
+        serialises to the browser, so the waiting thread and the visible countdown
+        can never disagree about whether a deadline is still armed.
+        (``paused`` is a property on purpose -- do not add it to ``__slots__``.)
+        """
+        return bool(self.data.get("paused"))
+
 
 def register_gateway_notify(session_key: str, cb) -> None:
     """Register a per-session callback for sending clarify requests to the UI."""
@@ -248,3 +259,33 @@ def resolve_clarify_by_id(session_key: str, clarify_id: str, response: str) -> b
                 entry.event.set()
                 return True
         return False
+
+
+def pause_clarify(session_key: str, clarify_id: str = "") -> bool:
+    """Cancel the auto-timeout of a pending clarify prompt (one-way, no resume).
+
+    Returns False when no pending entry matches (already expired/resolved or
+    wrong session), so the route can answer 409 exactly like a stale response.
+    Emits an SSE notify with the updated head payload so every subscribed tab
+    drops its countdown instead of counting down to a deadline that no longer
+    exists -- and so a reload restores the paused state instead of re-arming it.
+
+    A deduped re-submit of the same question reuses the paused entry and stays
+    paused: same question, same user decision, so the pause is preserved.
+    """
+    with _lock:
+        gw_queue = _gateway_queues.get(session_key) or []
+        entry = None
+        if clarify_id:
+            entry = next((e for e in gw_queue if e.clarify_id == clarify_id), None)
+        elif gw_queue:
+            entry = gw_queue[0]
+        if entry is None:
+            return False
+        if entry.data.get("paused"):
+            return True  # idempotent: already paused, no second notify
+        entry.data["paused"] = True
+        # Notify from inside _lock for ordering consistency with submit_pending
+        # and resolve_clarify*, which publish under the same lock.
+        _clarify_sse_notify(session_key, dict(gw_queue[0].data), len(gw_queue))
+    return True

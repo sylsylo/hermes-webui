@@ -7767,6 +7767,7 @@ let _clarifyId = null;
 let _clarifyMissingEndpointWarned = false;
 let _clarifyCountdownTimer = null;
 let _clarifyExpiresAt = 0;
+let _clarifyPaused = false;
 let _clarifyPendingBySession = new Map();
 const CLARIFY_MIN_VISIBLE_MS = 30000;
 
@@ -7838,6 +7839,7 @@ function _ensureClarifyCardDom() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17h.01"/><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4"/><circle cx="12" cy="12" r="10"/></svg>
         <span id="clarifyHeading" data-i18n="clarify_heading">Clarification needed</span>
         <span class="clarify-countdown" id="clarifyCountdown"></span>
+        <button type="button" class="clarify-pause" id="clarifyPause" aria-label="Cancel the auto-timeout" aria-controls="clarifyQuestion clarifyChoices clarifyInput clarifyHint" onclick="pauseClarify()" title="Cancel the auto-timeout" data-i18n-title="clarify_pause_title" data-i18n-aria-label="clarify_pause_title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="9" y1="6" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="18"></line></svg></button>
         <button type="button" class="clarify-collapse" id="clarifyCollapse" aria-expanded="true" aria-label="Collapse clarification" aria-controls="clarifyQuestion clarifyChoices clarifyInput clarifyHint" onclick="toggleClarifyCardCollapsed()" title="Collapse clarification"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       </div>
       <div class="clarify-question" id="clarifyQuestion"></div>
@@ -7937,6 +7939,39 @@ function _clearClarifyHideTimer() {
   }
 }
 
+function _syncClarifyPauseButton(paused) {
+  _clarifyPaused = !!paused;
+  const btn = $("clarifyPause");
+  const countdown = $("clarifyCountdown");
+  if (btn) {
+    btn.disabled = _clarifyPaused;
+    btn.classList.toggle("paused", _clarifyPaused);
+    const label = _clarifyPaused
+      ? (t('clarify_paused_title') || 'Auto-timeout cancelled')
+      : (t('clarify_pause_title') || 'Cancel the auto-timeout');
+    btn.setAttribute('aria-label', label);
+    if (btn.hasAttribute('data-tooltip')) btn.setAttribute('data-tooltip', label);
+    btn.title = label;
+  }
+  if (!countdown) return;
+  countdown.classList.toggle("paused", _clarifyPaused);
+  if (_clarifyPaused) {
+    // Paused overrides the countdown entirely: stop the interval, drop the
+    // urgent styling a previous tick may have applied, and show the state.
+    _clearClarifyCountdownTimer();
+    countdown.classList.remove("urgent");
+    countdown.textContent = t('clarify_paused') || '⏸ paused';
+  }
+}
+
+function _resetClarifyPauseState() {
+  _clarifyPaused = false;
+  const btn = $("clarifyPause");
+  if (btn) { btn.disabled = false; btn.classList.remove("paused"); }
+  const countdown = $("clarifyCountdown");
+  if (countdown) countdown.classList.remove("paused");
+}
+
 function _clearClarifyCountdownTimer() {
   if (_clarifyCountdownTimer) {
     clearInterval(_clarifyCountdownTimer);
@@ -7962,6 +7997,7 @@ function _clarifyExpiryMs(pending) {
 }
 
 function _updateClarifyCountdown() {
+  if (_clarifyPaused) return;  // paused: never repaint a deadline we cancelled
   const countdown = $("clarifyCountdown");
   if (!countdown || !_clarifyExpiresAt) return;
   const remaining = Math.max(0, Math.ceil((_clarifyExpiresAt - Date.now()) / 1000));
@@ -7970,6 +8006,7 @@ function _updateClarifyCountdown() {
 }
 
 function _startClarifyCountdown(pending) {
+  if (pending && pending.paused) { _syncClarifyPauseButton(true); return; }
   const expiresAt = _clarifyExpiryMs(pending);
   if (_clarifyCountdownTimer && _clarifyExpiresAt === expiresAt) return;
   _clearClarifyCountdownTimer();
@@ -8014,6 +8051,7 @@ function _stashClarifyDraft(reason) {
 function _resetClarifyCardState() {
   _clearClarifyHideTimer();
   _clearClarifyCountdownTimer();
+  _resetClarifyPauseState();
   _clarifyVisibleSince = 0;
   _clarifySignature = '';
   _clarifyId = null;
@@ -8097,6 +8135,11 @@ function showClarifyCard(pending) {
   _clarifySessionId = sid;
   _clarifyId = pending.clarify_id || null;
   _clarifySignature = sig;
+  // Pause state comes from the server payload on every render (first paint, 3s
+  // poll, SSE), so a reload or a second tab shows the same state. It is
+  // deliberately NOT part of _clarifySignature: including it would flip
+  // sameClarify to false on the pause update and wipe the typed draft.
+  _syncClarifyPauseButton(!!pending.paused);
   if (Number(pending.timeout_seconds) > 0) {
     _startClarifyCountdown(pending);
   } else {
@@ -8178,6 +8221,49 @@ function showClarifyCard(pending) {
     input.focus({preventScroll: true});
   }
   if (typeof syncTopbar === 'function') syncTopbar();
+}
+
+async function pauseClarify() {
+  const sid = _clarifySessionId || (S.session && S.session.session_id);
+  if (!sid || _clarifyPaused) return;
+  const clarifyId = _clarifyId;
+  const btn = $("clarifyPause");
+  if (btn) btn.disabled = true;
+  try {
+    const result = await api("/api/clarify/pause", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sid, clarify_id: clarifyId || "" })
+    });
+    if (!(result && result.ok)) {
+      const err = new Error((result && result.error) || "Pause not accepted.");
+      err.status = 409;
+      throw err;
+    }
+    _syncClarifyPauseButton(true);
+    const msg = t('clarify_paused_toast') || 'Countdown cancelled.';
+    if (typeof setComposerStatus === "function") setComposerStatus(msg);
+    if (typeof showToast === "function") showToast(msg, 4000);
+  } catch(e) {
+    if (e && e.status === 409 && _clarifyId === clarifyId) {
+      // The prompt is gone server-side (expired/answered elsewhere): dropping
+      // the card is terminal-safe, but keep this out of the "expired" stash path
+      // -- claiming a timeout would misreport a countdown the user cancelled.
+      _clarifySetControlsDisabled(false, false);
+      _clarifySessionId = null;
+      _clarifyId = null;
+      _clearClarifyPendingForSession(sid);
+      hideClarifyCard(true, "sent");
+      const errMsg = t('clarify_pause_stale') || "This question already expired.";
+      if (typeof setStatus === "function") setStatus(errMsg);
+      if (typeof showToast === "function") showToast(errMsg, 5000);
+      return;
+    }
+    // Transient failure: re-arm the button so the pause can be retried.
+    if (btn) btn.disabled = false;
+    const errMsg = (e && e.message) || "Failed to cancel the countdown.";
+    if (typeof setStatus === "function") setStatus("Clarify: " + errMsg);
+    if (typeof showToast === "function") showToast(errMsg, 5000);
+  }
 }
 
 async function respondClarify(response) {

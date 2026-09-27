@@ -670,6 +670,39 @@ def _clarify_timeout_seconds(default: int = 120) -> int:
 
 _CANCEL_MARKER_PATTERNS = ('task cancelled', 'task canceled', 'response interrupted')
 
+# Single source for the reply the agent receives when a clarify prompt goes
+# unanswered (timeout, cancellation, or an empty response).
+_CLARIFY_TIMEOUT_REPLY = (
+    "The user did not provide a response within the time limit. "
+    "Use your best judgement to make the choice and proceed."
+)
+
+
+def _clarify_wait_outcome(entry, deadline: float, cancel_evt) -> Optional[str]:
+    """Block until ``entry`` resolves, the caller cancels, or the deadline passes.
+
+    Returns the user's response, or ``None`` when cancelled / timed out / answered
+    with an empty string (callers turn all three into the timeout reply).
+
+    A paused entry (``entry.paused``, set by ``POST /api/clarify/pause``) ignores
+    the deadline entirely: the user cancelled the auto-timeout, so the run waits
+    until they answer or stop the run.  The flag is re-read on every one-second
+    slice so a click landing mid-wait takes effect immediately, and the wait stays
+    sliced (never one long ``Event.wait``) so cancellation remains responsive.
+    """
+    while True:
+        if cancel_evt.is_set():
+            return None
+        if entry.paused:
+            slice_seconds = 1.0
+        else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            slice_seconds = min(1.0, remaining)
+        if entry.event.wait(timeout=slice_seconds):
+            return str(entry.result or "").strip()
+
 
 _WEBUI_PROGRESS_PROMPT = """
 WebUI progress guidance:
@@ -7482,34 +7515,16 @@ def _run_agent_streaming(
             try:
                 from api.clarify import submit_pending as _submit_clarify_pending, clear_pending as _clear_clarify_pending
             except ImportError:
-                return (
-                    "The user did not provide a response within the time limit. "
-                    "Use your best judgement to make the choice and proceed."
-                )
+                return _CLARIFY_TIMEOUT_REPLY
 
             entry = _submit_clarify_pending(sid, data)
-            deadline = time.monotonic() + timeout
-            while True:
-                if cancel_evt.is_set():
-                    _clear_clarify_pending(sid)
-                    return (
-                        "The user did not provide a response within the time limit. "
-                        "Use your best judgement to make the choice and proceed."
-                    )
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    _clear_clarify_pending(sid)
-                    return (
-                        "The user did not provide a response within the time limit. "
-                        "Use your best judgement to make the choice and proceed."
-                    )
-                if entry.event.wait(timeout=min(1.0, remaining)):
-                    response = str(entry.result or "").strip()
-                    return (
-                        response
-                        or "The user did not provide a response within the time limit. "
-                           "Use your best judgement to make the choice and proceed."
-                    )
+            # A paused entry (user clicked the pause affordance) has no deadline:
+            # the wait ends on their answer or on cancellation, never on a timer.
+            response = _clarify_wait_outcome(entry, time.monotonic() + timeout, cancel_evt)
+            if not response:
+                _clear_clarify_pending(sid)
+                return _CLARIFY_TIMEOUT_REPLY
+            return response
 
         try:
             _token_sent = False  # tracks whether any streamed tokens were sent

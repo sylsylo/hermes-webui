@@ -38,6 +38,10 @@ final-check.png
 # Version file written by Docker/CI build — generated, never committed
 api/_version.py
 
+# Local runtime logs written by the service/launcher into the checkout root
+hermes.log
+*.log
+
 # OS files
 .DS_Store
 Thumbs.db

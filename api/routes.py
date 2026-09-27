@@ -9644,6 +9644,7 @@ try:
         submit_pending as submit_clarify_pending,
         get_pending as get_clarify_pending,
         pending_count as get_clarify_pending_count,
+        pause_clarify,
         resolve_clarify,
         resolve_clarify_by_id,
         sse_subscribe as clarify_sse_subscribe,
@@ -9653,6 +9654,7 @@ except ImportError:
     submit_clarify_pending = lambda *a, **k: None
     get_clarify_pending = lambda *a, **k: None
     get_clarify_pending_count = lambda *a, **k: 0
+    pause_clarify = lambda *a, **k: False
     clarify_sse_subscribe = None
     resolve_clarify = lambda *a, **k: 0
     resolve_clarify_by_id = lambda *a, **k: False
@@ -15345,6 +15347,9 @@ def handle_post(handler, parsed) -> bool:
     # ── Clarify (POST) ──
     if parsed.path == "/api/clarify/respond":
         return _handle_clarify_respond(handler, body)
+
+    if parsed.path == "/api/clarify/pause":
+        return _handle_clarify_pause(handler, body)
 
     # ── Commands (POST) ──
     if parsed.path == "/api/commands/bundles/resolve":
@@ -23903,6 +23908,26 @@ def _handle_clarify_respond(handler, body):
         }, status=409)
 
     return j(handler, {"ok": True, "response": response})
+
+
+def _handle_clarify_pause(handler, body):
+    """Cancel the auto-timeout on a pending clarify prompt (one-way, no resume).
+
+    Mirrors /api/clarify/respond's stale handling: an unknown, already-resolved
+    or wrong-session prompt is a 409 with ``stale: true`` so the frontend tears
+    its card down instead of leaving a dead pause button behind.
+    """
+    sid = str(body.get("session_id", "") or "")
+    if not sid:
+        return bad(handler, "session_id is required")
+    clarify_id = str(body.get("clarify_id", "") or "")
+    if not pause_clarify(sid, clarify_id):
+        return j(handler, {
+            "ok": False,
+            "error": "Clarification prompt expired or not found. The agent may have already proceeded.",
+            "stale": True,
+        }, status=409)
+    return j(handler, {"ok": True})
 
 
 class _ManualCompressionMemoryHandler:
