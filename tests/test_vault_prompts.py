@@ -15,6 +15,7 @@ Three layers are covered here:
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import urllib.request
@@ -52,6 +53,37 @@ def _agent_callbacks():
     from agent.vault_backends import unlock as vault_unlock
 
     return vault_unlock
+
+
+def _install_fake_store(monkeypatch, items):
+    """Replace the local vault store with a fixed one.
+
+    Records are ``(id, origin, kind, password)``. Tests must never read the developer's
+    real vault: an item saved for the manager's origin would silently switch the card
+    tests over to autonomous mode.
+    """
+    from agent import vault_store
+
+    class _Meta:
+        def __init__(self, rec):
+            self.id, self.origin, self.kind = rec[0], rec[1], rec[2]
+
+    class _Store:
+        def list_items(self):
+            return [_Meta(rec) for rec in items]
+
+        def resolve_secret(self, item_id):
+            for rec in items:
+                if rec[0] == item_id:
+                    return {"password": rec[3] if len(rec) > 3 else ""}
+            return {}
+
+    monkeypatch.setattr(vault_store, "get_vault_store", lambda: _Store())
+
+
+@pytest.fixture(autouse=True)
+def _empty_local_vault(monkeypatch):
+    _install_fake_store(monkeypatch, [])
 
 
 def _wait_for_pending(sid: str, timeout: float = 5.0) -> dict:
@@ -180,6 +212,73 @@ class TestEmptyAnswers:
         value = vault_prompts._ask(sid if False else "", None, {"question": "x", "vault": {}})
         assert value == ""
         assert clarify.get_pending(sid) is None
+
+
+class TestAutonomousUnlock:
+    """Default mode: the master password comes from the local vault, no card shown."""
+
+    def test_unlock_uses_the_saved_master_password_without_a_card(self, monkeypatch, caplog):
+        _install_fake_store(
+            monkeypatch,
+            [("vault_saved", "https://vault.bitwarden.com", "login", "master-from-vault")],
+        )
+        sid = _sid()
+        assert vault_prompts.install_vault_prompts(sid, None) is True
+        try:
+            with caplog.at_level(logging.INFO):
+                value = _agent_callbacks().get_unlock_prompt_callback()("bitwarden", "Bitwarden")
+            assert value == "master-from-vault"
+            assert clarify.get_pending(sid) is None, "no card in autonomous mode"
+            assert "master-from-vault" not in caplog.text, "the value never reaches a log"
+        finally:
+            vault_prompts.uninstall_vault_prompts()
+
+    def test_an_item_for_another_origin_is_never_borrowed(self, monkeypatch):
+        _install_fake_store(
+            monkeypatch,
+            [("vault_other", "https://example.test", "login", "unrelated-secret")],
+        )
+        sid = _sid()
+        assert vault_prompts.install_vault_prompts(sid, None) is True
+        try:
+            run = _run_callback(_agent_callbacks().get_unlock_prompt_callback(), "bitwarden", "Bitwarden")
+            assert _wait_for_pending(sid)["secret"] is True
+            clarify.clear_pending(sid)
+            run["join"]()
+            assert run["out"]["value"] == ""
+        finally:
+            vault_prompts.uninstall_vault_prompts()
+
+    def test_autonomous_mode_can_be_switched_off(self, monkeypatch):
+        monkeypatch.setenv("HERMES_WEBUI_VAULT_AUTO_UNLOCK", "0")
+        _install_fake_store(
+            monkeypatch,
+            [("vault_saved", "https://vault.bitwarden.com", "login", "master-from-vault")],
+        )
+        sid = _sid()
+        assert vault_prompts.install_vault_prompts(sid, None) is True
+        try:
+            run = _run_callback(_agent_callbacks().get_unlock_prompt_callback(), "bitwarden", "Bitwarden")
+            assert _wait_for_pending(sid)["secret"] is True
+            clarify.clear_pending(sid)
+            run["join"]()
+            assert run["out"]["value"] == ""
+        finally:
+            vault_prompts.uninstall_vault_prompts()
+
+    def test_the_manager_origin_can_be_overridden_for_self_hosted(self, monkeypatch):
+        monkeypatch.setenv("HERMES_WEBUI_BITWARDEN_ORIGIN", "https://vault.example.test")
+        _install_fake_store(
+            monkeypatch,
+            [("vault_self", "https://vault.example.test", "login", "vaultwarden-master")],
+        )
+        sid = _sid()
+        assert vault_prompts.install_vault_prompts(sid, None) is True
+        try:
+            value = _agent_callbacks().get_unlock_prompt_callback()("bitwarden", "Bitwarden")
+            assert value == "vaultwarden-master"
+        finally:
+            vault_prompts.uninstall_vault_prompts()
 
 
 class TestWiring:
