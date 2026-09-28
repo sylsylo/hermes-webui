@@ -1977,6 +1977,50 @@ global.fetch = async () => {{
 """
         subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
 
+    def test_wait_for_server_releases_restarting_flag(self):
+        """Le drapeau de redémarrage doit être relâché à la fin de l'attente.
+
+        Il n'était jamais remis à faux. Or refreshSession() le lit pour recharger la page entière
+        (voulu *pendant* un redémarrage). Une fois le drapeau armé pour la vie du document, la
+        première reprise de connexion — le retour au premier plan de l'application Android, par
+        exemple — rechargeait toute l'interface sans raison.
+        """
+        src = read('static/ui.js')
+        normalize_fn = extract_js_function(src, '_normalizeHealthServerIdentity')
+        identity_fn = extract_js_function(src, '_healthResponseServerIdentity')
+        wait_fn = extract_js_function(src, '_waitForServerThenReload')
+
+        script = f"""
+let now = 0;
+let reloads = 0;
+let fetches = 0;
+let flagDuringWait = false;
+global.window = {{}};
+global.document = {{ baseURI: 'http://127.0.0.1:8788/' }};
+global.location = {{ reload: () => {{ reloads += 1; }} }};
+global.$ = () => null;
+global.Date = {{ now: () => now }};
+global.setTimeout = (cb, ms) => {{ now += ms || 0; cb(); return 0; }};
+global.fetch = async () => {{
+  fetches += 1;
+  if (global.window._restartingForUpdate === true) flagDuringWait = true;
+  throw new Error('server down');
+}};
+{normalize_fn}
+{identity_fn}
+{wait_fn}
+(async () => {{
+  await _waitForServerThenReload({{ interval: 1, maxMs: 5 }});
+  if (fetches < 2) throw new Error('expected the wait loop to probe more than once, got '+fetches);
+  if (!flagDuringWait) throw new Error('the restart flag must be set while waiting');
+  if (global.window._restartingForUpdate !== false) {{
+    throw new Error('the restart flag must be cleared when the wait ends, got '+global.window._restartingForUpdate);
+  }}
+  if (reloads !== 0) throw new Error('a failed wait must not reload the page, got '+reloads);
+}})().catch(err => {{ console.error(err.stack || err.message); process.exit(1); }});
+"""
+        subprocess.run(["node", "-e", script], check=True, capture_output=True, text=True)
+
     def test_wait_for_server_ignores_old_identity_and_reloads_on_new_identity(self):
         """Healthy /health from the old process should not reload until identity changes."""
         src = read('static/ui.js')

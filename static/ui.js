@@ -10844,6 +10844,15 @@ async function _waitForServerThenReload(opts){
     await new Promise(r=>setTimeout(r, interval));
   }
   if(msgEl) msgEl.textContent='⚠️ Server is taking longer than expected — click Reload when ready';
+  // Fin de l'attente : on relache le drapeau.
+  //
+  // Il n'etait jamais remis a faux. Or `refreshSession()` le lit pour recharger la page entiere
+  // (c'est voulu *pendant* un redemarrage : un rafraichissement de session ne rendrait que des 502).
+  // Une fois le redemarrage termine, le drapeau restait arme pour toute la vie du document : le
+  // premier `refreshSession()` venu — typiquement la reprise de connexion au retour au premier plan
+  // sur Android — rechargeait alors toute l'interface sans aucune raison. Les chemins ci-dessus qui
+  // rechargent reellement n'arrivent pas jusqu'ici : ils rechargent puis sortent.
+  window._restartingForUpdate=false;
 }
 
 function _pendingCurrentTailUserMessage(messages){
