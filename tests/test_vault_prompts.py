@@ -14,8 +14,10 @@ Three layers are covered here:
 
 from __future__ import annotations
 
+import json
 import threading
 import time
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -239,3 +241,25 @@ class TestServedFront:
         for rel in ("static/index.html", "static/messages.js"):
             src = _read(rel)
             assert "clarifyInput" in src, rel
+
+
+class TestLiveInjection:
+    def test_injected_masked_prompt_reaches_the_card_with_the_secret_flag(self):
+        sid = _sid()
+        inject = (
+            f"{BASE}/api/clarify/inject_test?session_id={sid}"
+            "&question=Mot%20de%20passe%20ma%C3%AEtre%20Bitwarden&secret=1"
+        )
+        with urllib.request.urlopen(inject, timeout=10) as resp:
+            assert json.loads(resp.read().decode())["secret"] is True
+        try:
+            with urllib.request.urlopen(
+                f"{BASE}/api/clarify/pending?session_id={sid}", timeout=10
+            ) as resp:
+                pending = json.loads(resp.read().decode())["pending"]
+            # What the served card receives: masked, and tagged as a vault prompt.
+            assert pending["secret"] is True
+            assert pending["vault"] == {"kind": "unlock", "backend": "bitwarden"}
+            assert not pending["choices_offered"]
+        finally:
+            clarify.clear_pending(sid)

@@ -19609,17 +19609,22 @@ def _handle_clarify_inject(handler, parsed):
     sid = qs.get("session_id", [""])[0]
     question = qs.get("question", ["Which option?"])[0]
     choices = qs.get("choices", [])
+    # ``secret=1`` injects a masked vault prompt (password-manager unlock / one-time
+    # code): same card, but the front must render a masked input and suppress the
+    # echo. Kept here so the masked card can be exercised without a real unlock.
+    secret = qs.get("secret", [""])[0] in ("1", "true", "yes")
     if sid:
-        submit_clarify_pending(
-            sid,
-            {
-                "question": question,
-                "choices_offered": choices,
-                "session_id": sid,
-                "kind": "clarify",
-            },
-        )
-        return j(handler, {"ok": True, "session_id": sid})
+        payload = {
+            "question": question,
+            "choices_offered": choices,
+            "session_id": sid,
+            "kind": "clarify",
+        }
+        if secret:
+            payload["secret"] = True
+            payload["vault"] = {"kind": "unlock", "backend": "bitwarden"}
+        submit_clarify_pending(sid, payload)
+        return j(handler, {"ok": True, "session_id": sid, "secret": secret})
     return j(handler, {"error": "session_id required"}, status=400)
 
 
