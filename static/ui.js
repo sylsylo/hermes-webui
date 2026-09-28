@@ -6846,11 +6846,6 @@ function _syncDeepseekTariffRow(now){
   if(nextEl)nextEl.textContent=nextText;
   const windowEl=$('composerTariffWindow');
   if(windowEl)windowEl.textContent=windowText;
-  const caveatEl=$('composerTariffCaveat');
-  if(caveatEl){
-    if(st.peak){caveatEl.style.display='';caveatEl.textContent=t('deepseek_tariff_cost_caveat');}
-    else{caveatEl.style.display='none';caveatEl.textContent='';}
-  }
   if(tooltipLine){
     tooltipLine.style.display='';
     tooltipLine.textContent=[label,nextText].filter(Boolean).join(' \u00b7 ');

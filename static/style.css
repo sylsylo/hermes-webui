@@ -2936,7 +2936,6 @@
   .composer-tariff-pill::before{content:'';width:6px;height:6px;border-radius:999px;background:currentColor;flex:0 0 auto;}
   .composer-tariff-pill--offpeak{color:var(--success);background:rgba(61,139,64,.12);border-color:rgba(61,139,64,.38);}
   .composer-tariff-pill--peak{color:var(--warning);background:rgba(230,138,0,.14);border-color:rgba(230,138,0,.40);}
-  .composer-tariff-caveat{color:var(--warning);}
   .ctx-tooltip-line--deepseek{color:var(--warning);}
   .composer-right{display:flex;gap:8px;align-items:center;flex-shrink:0;}
   .composer-status{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;}

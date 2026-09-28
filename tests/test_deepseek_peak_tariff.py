@@ -5,7 +5,7 @@ Trois niveaux :
    figes — la logique de fenetres (UTC), de week-ends, de jours feries chinois et de
    bascule suivante n'est pas approximative ;
 2. cablage de la source (ids DOM, appels ``t()``, tick de 30 s, point ambre) ;
-3. parite i18n : les 6 cles existent dans chaque locale (convention du depot,
+3. parite i18n : les 5 cles existent dans chaque locale (convention du depot,
    meme controle que tests/test_issue1014_model_not_found.py).
 
 Reference des fenetres : https://api-docs.deepseek.com/quick_start/pricing
@@ -37,7 +37,6 @@ KEYS = (
     "deepseek_tariff_next_offpeak",
     "deepseek_tariff_next_peak",
     "deepseek_tariff_window",
-    "deepseek_tariff_cost_caveat",
 )
 
 # (instant UTC, heures pleines attendues, prochaine bascule attendue)
@@ -206,7 +205,7 @@ class TestWiring:
         for key in KEYS:
             assert f"t('{key}'" in src, f"{key} doit etre consommee via t()"
         for element_id in ("composerTariffRow", "composerTariffLabel", "composerTariffNext",
-                           "composerTariffWindow", "composerTariffCaveat", "ctxTooltipDeepseek"):
+                           "composerTariffWindow", "ctxTooltipDeepseek"):
             assert f"'{element_id}'" in src, f"#{element_id} doit etre lu par ui.js"
 
     def test_respects_hide_composer_context(self):
@@ -227,12 +226,12 @@ class TestWiring:
             "le changement de session doit recalculer l'etat tarifaire"
         )
 
-    def test_peak_caveat_only_during_peak(self):
-        """L'avertissement de cout ne doit apparaitre qu'en heures pleines."""
-        src = _ui()
-        body = src[src.index("function _syncDeepseekTariffRow"):]
-        body = body[:body.index("\n}\n")]
-        assert "deepseek_tariff_cost_caveat" in body and "st.peak" in body
+    def test_no_cost_caveat_anywhere(self):
+        """Aucun texte d'avertissement de cout : retire le 2026-09-27 (choix utilisateur)."""
+        assert "cost_caveat" not in HTML
+        assert "cost_caveat" not in UI.read_text(encoding="utf-8")
+        assert "cost_caveat" not in I18N.read_text(encoding="utf-8")
+        assert "tariff-caveat" not in CSS
 
     def test_peak_dot_on_context_indicator(self):
         """Le point ambre de la pastille suit l'etat, et son libelle est accessible."""
