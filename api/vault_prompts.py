@@ -104,6 +104,21 @@ def _code_data(site: str, hint: str) -> dict:
     return {"question": question, "vault": {"kind": "code", "site": site}}
 
 
+def _bind_owner_session(session_key: str) -> None:
+    """Record this session as the owner of any token the unlock is about to mint.
+
+    ``unlock._current_session_tls`` is thread-local and is NOT one of the values
+    ``propagate_context_to_thread`` copies into tool workers, so the binding has to
+    happen on the worker thread that actually runs the unlock -- which is where these
+    prompts run. Without it the token has no owner and cannot be released early; it
+    would linger until the idle TTL.
+    """
+    try:
+        _vault_unlock_api().set_current_session_id(session_key)
+    except Exception:
+        logger.debug("Could not bind the vault session owner", exc_info=True)
+
+
 def install_vault_prompts(session_key: str, cancel_event=None) -> bool:
     """Install this session's masked prompts on the CURRENT thread.
 
@@ -120,9 +135,11 @@ def install_vault_prompts(session_key: str, cancel_event=None) -> bool:
         return False
 
     def unlock_prompt(backend_name: str, display_name: str) -> str:
+        _bind_owner_session(session_key)
         return _ask(session_key, cancel_event, _unlock_data(backend_name, display_name))
 
     def code_prompt(site: str, hint: str) -> str:
+        _bind_owner_session(session_key)
         return _ask(session_key, cancel_event, _code_data(site, hint))
 
     set_unlock(unlock_prompt)

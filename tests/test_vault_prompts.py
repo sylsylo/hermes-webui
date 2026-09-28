@@ -183,6 +183,24 @@ class TestEmptyAnswers:
 
 
 class TestWiring:
+    def test_prompt_binds_the_session_as_the_token_owner(self, monkeypatch):
+        api = _agent_callbacks()
+        seen: list = []
+        monkeypatch.setattr(api, "set_current_session_id", lambda sid: seen.append(sid))
+        sid = _sid()
+        assert vault_prompts.install_vault_prompts(sid, None) is True
+        try:
+            cb = api.get_unlock_prompt_callback()
+            run = _run_callback(cb, "bitwarden", "Bitwarden")
+            _wait_for_pending(sid)
+            clarify.clear_pending(sid)
+            run["join"]()
+            # Bound on the worker thread, from the closure -- the value the agent needs
+            # to release the token when this session ends.
+            assert seen and set(seen) == {sid}
+        finally:
+            vault_prompts.uninstall_vault_prompts()
+
     def test_install_sets_and_uninstall_clears_the_agent_callbacks(self):
         api = _agent_callbacks()
         sid = _sid()
