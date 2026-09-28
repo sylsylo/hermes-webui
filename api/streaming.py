@@ -8684,6 +8684,18 @@ def _run_agent_streaming(
             # run_conversation() predates the moa_config kwarg.
             if moa_config is not None:
                 _run_conversation_kwargs["moa_config"] = moa_config
+            # Masked vault prompts for this run (password-manager unlock, one-time
+            # codes). The callbacks are thread-local, so they are installed on THIS
+            # thread -- the one that runs the agent -- and inherited by tool workers
+            # through tools.thread_context.propagate_context_to_thread(). Cleared in
+            # the outer finally. A WebUI that cannot import the agent installs
+            # nothing and the vault tools keep answering prompt_unavailable.
+            try:
+                from api.vault_prompts import install_vault_prompts
+
+                install_vault_prompts(session_id, cancel_event)
+            except Exception:
+                logger.debug("Vault prompts unavailable for this run", exc_info=True)
             result = agent.run_conversation(**_run_conversation_kwargs)
             # #4729: the run is done — flush any reasoning tail still in the coalescing
             # buffer (the agent never calls reasoning_callback(None), and a turn can end on
@@ -10531,6 +10543,15 @@ def _run_agent_streaming(
             _error_payload['old_session_id'] = session_id
         put('apperror', _error_payload)
     finally:
+        # Masked vault prompts live on this thread only: drop them before the thread
+        # is reused by the next run (a stale callback would answer the next session's
+        # unlock prompt with the previous session_id).
+        try:
+            from api.vault_prompts import uninstall_vault_prompts
+
+            uninstall_vault_prompts()
+        except Exception:
+            logger.debug("Vault prompts could not be cleared", exc_info=True)
         # #4633/#2476: symmetric metering teardown. begin_session() (top of the
         # outer try) had no paired end_session(), so zero-token turns leaked a
         # _sessions[stream_id] entry that get_stats() pruning never reclaims (its

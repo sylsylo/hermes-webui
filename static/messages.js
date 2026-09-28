@@ -7768,6 +7768,9 @@ let _clarifyMissingEndpointWarned = false;
 let _clarifyCountdownTimer = null;
 let _clarifyExpiresAt = 0;
 let _clarifyPaused = false;
+// Masked vault prompt (password-manager unlock, one-time code). Server-owned via
+// pending.secret; never part of _clarifySignature (see the rule below).
+let _clarifySecret = false;
 let _clarifyPendingBySession = new Map();
 const CLARIFY_MIN_VISIBLE_MS = 30000;
 
@@ -8018,6 +8021,9 @@ function _startClarifyCountdown(pending) {
 
 function _stashClarifyDraft(reason) {
   if (reason !== "expired" && reason !== "terminal") return false;
+  // A masked vault prompt (master password, verification code) is never rescued:
+  // no sessionStorage copy, no composer draft, no toast quoting it.
+  if (_clarifySecret) return false;
   const submit = $("clarifySubmit");
   if (submit && submit.classList.contains("loading")) return false;
   const input = $("clarifyInput");
@@ -8055,6 +8061,7 @@ function _resetClarifyCardState() {
   _clarifyVisibleSince = 0;
   _clarifySignature = '';
   _clarifyId = null;
+  _syncClarifySecretUi(false);
 }
 
 function hideClarifyCard(force=false, reason="dismissed") {
@@ -8113,13 +8120,41 @@ function _clarifySetControlsDisabled(disabled, loading=false) {
   }
 }
 
+// Masked vault prompts (password-manager unlock, one-time code) ride the same card
+// as a clarify question; the server payload's `secret` flag decides the two
+// differences: the field is masked, and the answer is never echoed anywhere
+// (respondClarify and _stashClarifyDraft both branch on _clarifySecret). Applying it
+// on every render -- not on first paint only -- is what keeps a reload, the 3 s poll
+// and a second tab from un-masking the field.
+function _syncClarifySecretUi(isSecret) {
+  _clarifySecret = !!isSecret;
+  const heading = $("clarifyHeading");
+  const hint = $("clarifyHint");
+  const input = $("clarifyInput");
+  if (heading) heading.setAttribute('data-i18n', _clarifySecret ? 'vault_prompt_heading' : 'clarify_heading');
+  if (hint) hint.setAttribute('data-i18n', _clarifySecret ? 'vault_prompt_hint' : 'clarify_hint');
+  if (input) {
+    input.setAttribute('type', _clarifySecret ? 'password' : 'text');
+    input.setAttribute('data-i18n-placeholder', _clarifySecret ? 'vault_prompt_placeholder' : 'clarify_input_placeholder');
+    // Keep the browser's own password manager / autofill out of this field: the value
+    // goes to the Hermes vault, not to a saved site login.
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('data-1p-ignore', 'true');
+    input.setAttribute('data-lpignore', 'true');
+    if (_clarifySecret) input.setAttribute('name', 'hermes-masked-prompt');
+    else input.removeAttribute('name');
+  }
+}
+
 function showClarifyCard(pending) {
   const sid = _rememberClarifyPending(pending);
   if (!_clarifyPromptBelongsToActiveSession(sid)) return;
+  const secretPrompt = !!(pending && pending.secret && pending.vault);
+  _syncClarifySecretUi(secretPrompt);
   const question = pending.question || pending.description || '';
-  const choices = Array.isArray(pending.choices_offered)
+  const choices = secretPrompt ? [] : (Array.isArray(pending.choices_offered)
     ? pending.choices_offered
-    : (Array.isArray(pending.choices) ? pending.choices : []);
+    : (Array.isArray(pending.choices) ? pending.choices : []));
   const sig = JSON.stringify({
     question,
     choices,
@@ -8277,6 +8312,10 @@ async function respondClarify(response) {
     return;
   }
   const clarifyId = _clarifyId;
+  const secret = _clarifySecret;
+  // A masked vault prompt is read once and dropped from the DOM immediately: none of
+  // the paths below (draft restore, composer stash, transcript echo) may keep a copy.
+  if (secret && input) input.value = '';
   // Keep a draft copy so we can restore the input on failure (issue #2639).
   const draft = value;
   _clarifySetControlsDisabled(true, true);
@@ -8295,8 +8334,10 @@ async function respondClarify(response) {
         _clarifyId = null;
         _clearClarifyPendingForSession(sid);
         hideClarifyCard(true, 'sent');
-        // Echo the user's clarify choice as a visible message in the conversation
-        if (S.session && S.session.session_id === sid) {
+        // Echo the user's clarify choice as a visible message in the conversation.
+        // Never for a masked vault prompt: that answer is a master password or a
+        // one-time code, so it stays out of the transcript entirely.
+        if (!secret && S.session && S.session.session_id === sid) {
           S.messages.push({
             role: 'user',
             content: value,
@@ -8308,8 +8349,17 @@ async function respondClarify(response) {
       }
     } else {
       // Stale / expired / wrong session — keep the card and draft visible.
+      // A masked prompt is the exception: the entry is gone server-side, so the card
+      // is torn down and the typed secret is NOT put back into the field.
       _clarifySetControlsDisabled(false, false);
-      if (input) {
+      if (secret) {
+        if (_clarifyId === clarifyId) {
+          _clarifySessionId = null;
+          _clarifyId = null;
+          _clearClarifyPendingForSession(sid);
+          hideClarifyCard(true, "sent");
+        }
+      } else if (input) {
         input.value = draft;
         input.focus();
       }
@@ -8360,10 +8410,11 @@ async function respondClarify(response) {
       return;
     }
     // Network / other transient errors — keep the card and draft visible so
-    // the user can retry once connectivity returns.
+    // the user can retry once connectivity returns. A masked secret is never
+    // restored: the user retypes it, and nothing else keeps a copy.
     _clarifySetControlsDisabled(false, false);
     if (input) {
-      input.value = draft;
+      if (!secret) input.value = draft;
       input.focus();
     }
     const errMsg = (e && e.message) || "Failed to deliver clarification response.";
