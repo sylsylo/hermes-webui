@@ -267,6 +267,16 @@ class TestWiring:
 
 # ── 3. Parite i18n ───────────────────────────────────────────────────────────
 
+def test_window_line_shows_local_time_only():
+    """La ligne affichee ne cite que l'heure locale : aucune reference UTC (choix utilisateur)."""
+    src = I18N.read_text(encoding="utf-8")
+    values = re.findall(r"deepseek_tariff_window: '([^']*)'", src)
+    assert len(values) >= 15, f"valeurs trouvees : {len(values)}"
+    for v in values:
+        assert "UTC" not in v, v
+        assert "{0}" in v, v
+
+
 def test_all_locales_have_tariff_keys():
     """Les 6 cles doivent exister dans chaque locale (meme controle que #1014)."""
     src = I18N.read_text(encoding="utf-8")
