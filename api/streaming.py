@@ -704,6 +704,62 @@ def _clarify_wait_outcome(entry, deadline: float, cancel_evt) -> Optional[str]:
             return str(entry.result or "").strip()
 
 
+def _clarify_callback_impl(questions, sid, cancel_evt, timeout=None):
+    """Bridge Hermes clarify prompts to the WebUI card.
+
+    Hermes >= 0.21 invokes ``clarify_callback(questions)`` with a *list* of normalized
+    question dicts (``qid`` / ``question`` / ``choices_offered`` / ``multi_select``) and
+    requires a dict back::
+
+        {"answers": {qid: raw}, "outcome": "submitted"|"timed_out"|"cancelled"|"undelivered",
+         "notice"?: str}
+
+    (contract: ``tools/clarify_tool.py::_result``). The former two-positional form
+    ``(question, choices)`` raised "missing 1 required positional argument: 'choices'"
+    on EVERY clarify call. The WebUI card shows one question at a time, so a
+    multi-question call is asked sequentially and answers are collected by ``qid``.
+
+    Module level (not a closure) on purpose: the blocking loop needs a live service,
+    but the mapping is pure enough to unit-test with ``timeout=0.01``.
+    """
+    if timeout is None:
+        timeout = _clarify_timeout_seconds()
+    try:
+        from api.clarify import submit_pending as _submit_clarify_pending, clear_pending as _clear_clarify_pending
+    except ImportError:
+        return {"answers": {}, "outcome": "undelivered", "notice": _CLARIFY_TIMEOUT_REPLY}
+
+    answers: dict = {}
+    total = len(questions)
+    for index, item in enumerate(questions):
+        text = str(item.get('question') or '')
+        if total > 1:
+            # Self-describing card; also stops submit_pending's identical-prompt
+            # de-duplication from collapsing two different questions into one entry.
+            text = f"({index + 1}/{total}) {text}"
+        data = {
+            'question': text,
+            'choices_offered': [str(choice) for choice in (item.get('choices_offered') or [])],
+            'multi_select': bool(item.get('multi_select')),
+            'session_id': sid,
+            'kind': 'clarify',
+            'requested_at': time.time(),
+            'timeout_seconds': timeout,
+        }
+        entry = _submit_clarify_pending(sid, data)
+        # A paused entry (user clicked the pause affordance) has no deadline:
+        # the wait ends on their answer or on cancellation, never on a timer.
+        response = _clarify_wait_outcome(entry, time.monotonic() + timeout, cancel_evt)
+        if not response:
+            _clear_clarify_pending(sid)
+            cancelled = cancel_evt is not None and cancel_evt.is_set()
+            return {"answers": answers,
+                    "outcome": "cancelled" if cancelled else "timed_out",
+                    "notice": _CLARIFY_TIMEOUT_REPLY}
+        answers[str(item.get('qid') or f'q{index}')] = response
+    return {"answers": answers, "outcome": "submitted"}
+
+
 _WEBUI_PROGRESS_PROMPT = """
 WebUI progress guidance:
 - Match the normal Hermes messaging style, but do not let long tool-running WebUI turns appear silent.
@@ -7500,32 +7556,6 @@ def _run_agent_streaming(
         except ImportError:
             logger.debug("Clarify module not available, falling back to polling")
 
-        def _clarify_callback_impl(question, choices, sid, cancel_evt, put_event):
-            """Bridge Hermes clarify prompts to the WebUI."""
-            timeout = _clarify_timeout_seconds()
-            choices_list = [str(choice) for choice in (choices or [])]
-            data = {
-                'question': str(question or ''),
-                'choices_offered': choices_list,
-                'session_id': sid,
-                'kind': 'clarify',
-                'requested_at': time.time(),
-                'timeout_seconds': timeout,
-            }
-            try:
-                from api.clarify import submit_pending as _submit_clarify_pending, clear_pending as _clear_clarify_pending
-            except ImportError:
-                return _CLARIFY_TIMEOUT_REPLY
-
-            entry = _submit_clarify_pending(sid, data)
-            # A paused entry (user clicked the pause affordance) has no deadline:
-            # the wait ends on their answer or on cancellation, never on a timer.
-            response = _clarify_wait_outcome(entry, time.monotonic() + timeout, cancel_evt)
-            if not response:
-                _clear_clarify_pending(sid)
-                return _CLARIFY_TIMEOUT_REPLY
-            return response
-
         try:
             _token_sent = False  # tracks whether any streamed tokens were sent
             _self_healed = False  # (#1401) prevents infinite self-heal retries
@@ -8300,8 +8330,8 @@ def _run_agent_streaming(
                 reasoning_callback=on_reasoning,
                 tool_progress_callback=on_tool,
                 clarify_callback=(
-                    lambda question, choices: _clarify_callback_impl(
-                        question, choices, session_id, cancel_event, put
+                    lambda questions: _clarify_callback_impl(
+                        questions, session_id, cancel_event
                     )
                 ),
             )
