@@ -8137,12 +8137,18 @@ function _syncClarifySecretUi(isSecret) {
     input.setAttribute('type', _clarifySecret ? 'password' : 'text');
     input.setAttribute('data-i18n-placeholder', _clarifySecret ? 'vault_prompt_placeholder' : 'clarify_input_placeholder');
     // Keep the browser's own password manager / autofill out of this field: the value
-    // goes to the Hermes vault, not to a saved site login.
+    // goes to the Hermes vault, not to a saved site login. The value is also cleared
+    // when a masked prompt opens, so an autofilled (or stale) credential can never be
+    // submitted as if the user had typed it.
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('data-1p-ignore', 'true');
     input.setAttribute('data-lpignore', 'true');
-    if (_clarifySecret) input.setAttribute('name', 'hermes-masked-prompt');
-    else input.removeAttribute('name');
+    if (_clarifySecret) {
+      input.setAttribute('name', 'hermes-masked-prompt');
+      if (input.value) input.value = '';
+    } else {
+      input.removeAttribute('name');
+    }
   }
 }
 

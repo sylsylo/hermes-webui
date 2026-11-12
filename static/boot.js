@@ -2723,10 +2723,9 @@ function _setResolvedTheme(isDark){
   const link=document.getElementById('prism-theme');
   if(!link){ _syncThemeColorMeta(); return; }
   const want=effectiveDark
-    ?'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css'
-    :'https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css';
-  // No SRI integrity on theme CSS — jsdelivr edge nodes serve different
-  // digests for the same pinned version, causing intermittent blocking (#1100).
+    ?new URL('static/vendor/prism/prism-tomorrow.min.css',document.baseURI).href
+    :new URL('static/vendor/prism/prism-light.min.css',document.baseURI).href;
+  // Themes Prism servis localement (vendor/prism/) : aucune dependance CDN au demarrage.
   if(link.href!==want){ link.integrity=''; link.href=want; }
   _syncThemeColorMeta();
 }

@@ -39,6 +39,14 @@ const SHELL_ASSETS = [
   './static/vendor/smd.min.js' + VQ,
   './static/vendor/katex/0.16.22/katex.min.css' + VQ,
   './static/vendor/katex/0.16.22/katex.min.js' + VQ,
+  './static/vendor/xterm/xterm.css' + VQ,
+  './static/vendor/xterm/xterm.js' + VQ,
+  './static/vendor/xterm/xterm-addon-fit.js' + VQ,
+  './static/vendor/xterm/xterm-addon-web-links.js' + VQ,
+  './static/vendor/prism/prism-core.min.js' + VQ,
+  './static/vendor/prism/prism-autoloader.min.js' + VQ,
+  './static/vendor/prism/prism-tomorrow.min.css' + VQ,
+  './static/vendor/prism/prism-light.min.css' + VQ,
   './static/favicon.svg',
   './static/favicon-32.png',
   './manifest.json',
@@ -153,24 +161,39 @@ self.addEventListener('fetch', (event) => {
   const shellPath = './' + relPath.replace(/^\/+/, '') + url.search;
   if (!SHELL_ASSETS.includes(shellPath)) return;
 
-  // Shell assets: network-first with cache fallback. This keeps offline support
-  // but avoids executing stale JS/CSS after a local hotfix when WEBUI_VERSION
-  // has not changed yet (e.g. before a guarded restart updates the ?v token).
-  event.respondWith(
-    fetch(new Request(event.request, { cache: 'no-store' })).then((response) => {
-      if (
-        event.request.method === 'GET' &&
-        response.status === 200
-      ) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-      }
-      return response;
-    }).catch(() => caches.match(event.request).then((cached) => cached || new Response('Offline', {
-      status: 503,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    })))
-  );
+  // Shell assets: stale-while-revalidate. Serving from CacheStorage first is what
+  // makes a repeat launch fast: the shell is ~1.3 MB of compressed JS/CSS, and a
+  // network-first fetch (or `cache:'no-store'`, which also bypasses the HTTP cache)
+  // re-downloaded all of it on every launch — 10+ s on a mobile connection, during
+  // which the interface is painted but dead. The background refresh uses
+  // `cache:'no-cache'` (conditional GET, ETag): it costs a 304 per asset and still
+  // picks up an asset edited without a version bump, so the next load is current.
+  event.respondWith((async () => {
+    let cached;
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      cached = await cache.match(event.request);
+    } catch (_e) {}
+    const refresh = fetch(new Request(event.request, { cache: 'no-cache' }))
+      .then((response) => {
+        if (event.request.method === 'GET' && response.status === 200) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+        }
+        return response;
+      });
+    if (cached) {
+      refresh.catch(() => {});   // hors ligne : on garde la version en cache
+      return cached;
+    }
+    try {
+      return await refresh;
+    } catch (_e) {
+      return new Response('Offline', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
+  })());
 });
 
 
